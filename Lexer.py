@@ -42,6 +42,22 @@ class TokenType(Enum):
     ColourType = 34
     BoolType = 35
 
+    # Token typing for Width, Height, Read , RandI, Print, Delay & Write
+    PadWidth = 36
+    PadHeight = 37
+    PadRead = 38
+    PadRandI = 39 
+    Print = 40
+    Delay = 41
+    WriteBox = 42
+    Write = 43 
+
+
+
+    FunctionCall = 44
+
+
+
 
 
 Keywords = {'for', 'while', 'if', 'else', 'return', 'let'}
@@ -119,10 +135,11 @@ class Lexer():
                  '#' : 21,
                  ',' : 22,
                  ':' : 23,
-                 'relop' : 24
+                 'relop' : 24,
+                 'funCall' : 25
             },
             # String
-            1 : {'letter' : 1, 'digit' : 1, '_' : 1},
+            1 : {'letter' : 1, 'digit' : 1, '_' : 1, 'parameter_L' : 25},
             # Digit
             2 : {'digit' : 2, "." : 10},
             # Comment
@@ -155,7 +172,8 @@ class Lexer():
             21 : {'#' : 21, 'digit' : 21, 'letter' : 21},
             22 : {',' : 22},
             23 : {':' : 23},
-            24 : {'relop' : 24, 'assign_op' : 24},
+            24 : {'relop' : 24, 'assign_op' : 24},  
+            25 : {'parameter_R' : 25},
             
 
 
@@ -189,7 +207,8 @@ class Lexer():
             21 : TokenType.ColourLiteral,
             22 : TokenType.Comma,
             23 : TokenType.Colon,
-            24 : TokenType.Relop
+            24 : TokenType.Relop,
+            25 : TokenType.FunctionCall
         }
 
 
@@ -206,6 +225,23 @@ class Lexer():
             return TokenType.BooleanLiteral, lexeme
         elif lexeme == 'fun':
             return TokenType.Function, lexeme
+        elif lexeme == '__width':
+            return TokenType.PadWidth, lexeme
+        elif lexeme == '__height':
+            return TokenType.PadHeight, lexeme
+        elif lexeme == '__read':
+            return TokenType.PadRead, lexeme
+        elif lexeme == '__random_int':
+            return TokenType.PadRandI, lexeme
+        elif lexeme == '__write_box':
+            return TokenType.WriteBox, lexeme
+        elif lexeme == '__write':
+            return TokenType.Write, lexeme
+        elif lexeme == '__print':
+            return TokenType.Print, lexeme
+
+
+
         
         else: return False
     
@@ -243,6 +279,7 @@ class Lexer():
                                 TokenType, lexeme = self.__checkKeyword(lexeme)
                                 self.tokens.append(Token(TokenType, lexeme))
                             else:
+                                 print()
                                  self.tokens.append(Token(self.accepts[state],lexeme))
 
                             state = 0
@@ -298,7 +335,11 @@ class Lexer():
 
 
 if __name__ == '__main__':
-    lex = Lexer('else;')
+    lex = Lexer("""
+                    true;
+
+                   
+                    """)
     lex.printTokens()
 
 

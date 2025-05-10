@@ -3,8 +3,12 @@ class ASTNode:
     def __init__(self):
         self.name = "ASTNode"    
 class ASTProgramNode(ASTNode):
-    def __init__(self):
+    def __init__(self, block):
         self.name = "ASTProgramNode"
+        self.block = block
+    
+    def accept(self, visitor):
+        visitor.visit_program_node(self)
 
 class ASTStatementNode(ASTNode):
     def __init__(self):
@@ -30,9 +34,10 @@ class ASTUnaryNode(ASTExpressionNode):
         visitor.visit_unary_node(self)
 
 class ASTFactorNode(ASTExpressionNode):
-    def __init__(self, lexeme):
+    def __init__(self, lexeme, type):
         self.name = "ASTFactorNode"
         self.lexeme = lexeme
+        self. type = type
     
     def accept(self, visitor):
         visitor.visit_factor_node(self)
@@ -75,16 +80,104 @@ class ASTReturnNode(ASTNode):
     def accept(self, visitor):
         visitor.visit_return_node(self)
 
+class ASTFunctionCall(ASTNode):
+    def __init__(self, params = None):
+        self.name = "ASTFunctionCall"
+        self.params = params
+
+    def accept(self, visitor):
+        visitor.visit_func_call(self)
+
 class ASTIfNode(ASTNode):
     def __init__(self, conds, block, elseBlock = None):
         self.name = "ASTIfNode"
-        self.params = conds
+        self.conds = conds
         self.block = block
         self.elseBlock = elseBlock
     
-    def accept():
-        pass
+    def accept(self, visitor):
+        visitor.visit_if_node(self)
+        
+class ASTForNode(ASTNode):
+    def __init__(self, init, cond, step, block=None):
+        self.name = "ASTForNode"
+        self.init = init
+        self.cond = cond
+        self.step = step
+        self.block = block
+    
+    def accept(self, visitor):
+        visitor.visit_for_node(self)
 
+class ASTWhileNode(ASTNode):
+    def __init__(self, expr, block):
+        self.name = "ASTWhileNode"
+        self.expr = expr
+        self.block = block
+
+    def accept(self, visitor):
+        visitor.visit_while_node(self)
+
+class ASTWidthNode(ASTNode):
+    def __init__(self):
+        self.name = "ASTWidthNode"
+    
+    def accept(self, visitor):
+        visitor.visit_width_node(self)
+
+class ASTHeightNode(ASTNode):
+    def __init__(self):
+        self.name = "ASTHeightNode"
+    
+    def accept(self, visitor):
+        visitor.visit_height_node(self)
+
+class ASTReadNode(ASTNode):
+    def __init__(self, expr):
+        self.name = "ASTWidthNode"
+    
+    def accept(self, visitor):
+        visitor.visit_height_node(self)
+
+class ASTHeightNode(ASTNode):
+    def __init__(self):
+        self.name = "ASTWidthNode"
+    
+    def accept(self, visitor):
+        visitor.visit_height_node(self)
+
+class ASTDelayNode(ASTNode):
+    def __init__(self, val):
+          self.name = "ASTDelayNode"
+          self.expr = val
+    def accept(self, visitor):
+          visitor.visit_delay_node(self)
+
+class ASTWriteBoxNode(ASTNode):
+    def __init__(self, u, v, x, y, color):
+          self.name = "ASTWriteBoxNode"
+          self.u, self.v = u, v
+          self.x, self.y = x, y
+          self.color = color
+
+    def accept(self, visitor):
+          visitor.visit_writeBox_node(self)
+
+class ASTWriteNode(ASTNode):
+    def __init__(self, u, v, color):
+          self.name = "ASTWriteNode"
+          self.u, self.v = u, v
+          self.color = color
+
+    def accept(self, visitor):
+          visitor.visit_write_node(self)
+
+class ASTPrintNode(ASTNode):
+      def __init__(self, expr):
+          self.name = "ASTPrintNode"
+          self.expr = expr
+      def accept(self, visitor):
+          visitor.visit_print_node(self)
 
 class ASTTermNode(ASTExpressionNode):
     def __init__(self, lhs, mulop=None, rhs=None):
@@ -155,25 +248,34 @@ class ASTActualParamsNode(ASTNode):
     
     def accept(self, visitor):  
         visitor.visit_actual_params_node(self)
+
+class ASTFormalParamNode(ASTNode):
+    def __init__(self, var, type):
+        self.name = "ASTFormalParamNode"
+        self.var = var
+        self.type = type
+    
+    def accept(self, visitor):
+        visitor.visit_formalparam_node(self)
+
+
+class ASTFormalParamsNode(ASTNode):
+    def __init__(self):
+        self.name = 'ASTActualParamsNode'
+        self.params = []
+
+    def add_params(self, param):
+        self.params.append(param)
+    
+    def accept(self, visitor):  
+        visitor.visit_formalparams_node(self)
+
         
 class ASTFunctionNode(ASTNode):
-    def __init__(self):
+    def __init__(self, name=None, params= ASTFormalParamsNode() ):
         self.name = "ASTFunctionNode"
-        self.params = []
-        self.returnType = None
-        self.block : ASTBlockNode = None
-
-    def accept_params(self, visitor):
-        for x in self.params:
-            x.accept(visitor)
-
-    def accept(self, visitor):
-        visitor.visit_func_node(self)
-
-class ASTIfNode(ASTNode):
-    def __init__(self):
-        self.name = "ASTFunctionNode"
-        self.params = []
+        # ASTFormalParams
+        self.params = params
         self.returnType = None
         self.block : ASTBlockNode = None
 
@@ -195,14 +297,14 @@ class ASTBlockNode(ASTNode):
     def accept(self, visitor):
         visitor.visit_block_node(self)   
 
- 
-
-
 class ASTVisitor:
     def visit_integer_node(self, node):
         raise NotImplementedError()
 
     def visit_assignment_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_program_node(self,node):
         raise NotImplementedError()
     
     def visit_term_node(self, node):
@@ -220,7 +322,10 @@ class ASTVisitor:
     def visit_float_node(self, node):
         raise NotImplementedError()
     
-    def visit_actualparams_node(self,node):
+    def visit_actualparams_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_formalparams_node(self, node):
         raise NotImplementedError()
     
     def visit_unary_node(self, node):
@@ -231,6 +336,10 @@ class ASTVisitor:
     
     def visit_func_node(self, node):
         raise NotImplementedError()
+
+    def visit_func_call(self, node):
+        raise NotImplementedError()
+    
     
     def visit_exp_node(self, node):
         raise NotImplementedError()
@@ -239,6 +348,30 @@ class ASTVisitor:
         raise NotImplementedError()
     
     def visit_colour_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_width_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_height_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_read_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_delay_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_print_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_writeBox_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_write_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_rand_node(self, node):
         raise NotImplementedError()
     
     def visit_bool_node(self, node):
@@ -255,6 +388,12 @@ class ASTVisitor:
     
     def visit_if_node(self):
         raise NotImplementedError()
+    
+    def visit_while_node(self):
+        raise NotImplementedError()
+    
+    def visit_for_node(self):
+        raise NotImplementedError()
 
 class PrintNodesVisitor(ASTVisitor):
     def __init__(self):
@@ -264,6 +403,13 @@ class PrintNodesVisitor(ASTVisitor):
 
     def inc_tab_count(self):
         self.tab_count += 1
+
+    def visit_program_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "Program Node => ")
+        self.inc_tab_count()
+        node.block.accept(self)
+        self.dec_tab_count()
 
     def dec_tab_count(self):
         self.tab_count -= 1
@@ -279,10 +425,22 @@ class PrintNodesVisitor(ASTVisitor):
     def visit_func_node(self, func_node):
         self.node_count += 1
         print('\t' * self.tab_count, "Function name::", func_node.name)
-        print('\t' * self.tab_count, "Parameters:: ", func_node.params)
+        print('\t' * self.tab_count, "Parameters:: ")
+        func_node.params.accept(self)
         print('\t' * self.tab_count, "Return Type:: ", func_node.returnType)
         self.visit_block_node(func_node.block)
 
+    def visit_func_call(self, func_call):
+        self.node_count += 1
+        print('\t' * self.tab_count, "Function Call =>")
+        self.inc_tab_count()
+        print('\t' * self.tab_count, "Function Name ::", func_call.name)
+        print('\t' * self.tab_count, "Arguments:: ")
+        self.inc_tab_count()
+        for arg in func_call.params:
+            arg.accept(self)
+        self.dec_tab_count()
+   
     def visit_bool_node(self, node):
         self.node_count += 1
         print('\t' * self.tab_count, "Boolean value::", node.value)
@@ -293,6 +451,59 @@ class PrintNodesVisitor(ASTVisitor):
         self.inc_tab_count()        
         ass_node.id.accept(self)
         ass_node.expr.accept(self)
+        self.dec_tab_count()
+
+    def visit_width_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Width Constant")
+        self.dec_tab_count()
+
+    def visit_height_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Height Constant")
+        self.dec_tab_count()
+
+    def visit_read_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Read node")
+        self.dec_tab_count()
+
+    def visit_print_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Print Node =>")
+        self.inc_tab_count()
+        node.expr.accept(self)
+        self.dec_tab_count()
+
+    def visit_read_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Delay node :: ", node.val)
+        self.dec_tab_count()
+
+    def visit_write_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()    
+        print('\t' * self.tab_count, "Write node =>")
+        self.inc_tab_count()   
+        print('\t' * self.tab_count, "pos u ::", node.u)
+        print('\t' * self.tab_count, "pos v ::", node.v)
+        print('\t' * self.tab_count, "color::", node.color)
+        self.dec_tab_count()
+
+    def visit_writeBox_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "Write Box node =>")
+        self.inc_tab_count()   
+        print('\t' * self.tab_count, "pos u ::", node.u)
+        print('\t' * self.tab_count, "pos v ::", node.v)
+        print('\t' * self.tab_count, "size x ::", node.x)
+        print('\t' * self.tab_count, "size y ::", node.y)    
+        print('\t' * self.tab_count, "color::", node.color)
         self.dec_tab_count()
 
     def visit_unary_node(self, node):
@@ -338,14 +549,48 @@ class PrintNodesVisitor(ASTVisitor):
         self.inc_tab_count()
         node.expr.accept(self)
         self.dec_tab_count()
+    
+    def visit_for_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "For node => ")
+        self.inc_tab_count()
+        print('\t' * self.tab_count, "Initialization::")
+        self.inc_tab_count()
+        node.init.accept(self)
+        self.dec_tab_count()
+        print('\t' * self.tab_count, "Condition::")
+        self.inc_tab_count()
+        node.cond.accept(self)
+        self.dec_tab_count()
+        print('\t' * self.tab_count, "Step::")
+        self.inc_tab_count()
+        node.step.accept(self)
+        self.dec_tab_count()
+        print('\t' * self.tab_count, "Block::")
+        self.inc_tab_count()
+        node.block.accept(self)
+        self.dec_tab_count()
+
+    def visit_while_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "While Node =>")
+        print('\t' * self.tab_count, "Conditions:: ")
+        self.inc_tab_count()
+        node.expr.accept(self)
+        self.dec_tab_count()
+        node.block.accept(self)
 
     def visit_if_node(self, node):
         self.node_count += 1
-        print('\t' * self.tab_count, "If node ")
-        print('\t' * self.tab_count, "Condition:: " , node.conds.accept() )
+        print('\t' * self.tab_count, "If Node =>")
+        print('\t' * self.tab_count, "Conditions:: ")
         self.inc_tab_count()
-        print('\t' * self.tab_count, "Block:: " , node.block.accept())
-        print('\t' * self.tab_count, "Else:: " , node.elseBlock.accept())
+        node.conds.accept(self)
+        node.block.accept(self)
+        
+        if node.elseBlock:
+            print('\t' * self.tab_count, "Else:: ")
+            node.elseBlock.accept(self)
         self.dec_tab_count()
         
     def visit_simpleexp_node(self, node):
@@ -367,10 +612,10 @@ class PrintNodesVisitor(ASTVisitor):
 
     def visit_exp_node(self, node):
         self.node_count += 1
-        print('\t' * self.tab_count, "Expression Node:")
-        print('\t' * self.tab_count, "of Type : ", node.type)
+        print('\t' * self.tab_count, "Expression Node =>")
+        # print('\t' * self.tab_count, "of Type : ", node.type)
         if node and node.left and node.right:
-            print('\t' * self.tab_count, "Expression Operator => ", node.op)
+            print('\t' * self.tab_count, "Expression Operator:: ", node.op)
             self.inc_tab_count()
             print('\t' * self.tab_count, 'left')
             node.left.accept(self)
@@ -384,6 +629,27 @@ class PrintNodesVisitor(ASTVisitor):
 
     def visit_actualparams_node(self, node):
         self.node_count += 1
+        self.inc_tab_count()
+
+    def visit_formalparams_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()
+        print('\t' * self.tab_count, "Formal Parameters =>")
+        self.inc_tab_count()
+        for param in node.params:
+            param.accept(self)
+        self.dec_tab_count()
+        self.dec_tab_count()
+
+        
+
+    
+    def visit_formalparam_node(self, node):
+        self.node_count += 1
+        self.inc_tab_count()
+        print('\t' * self.tab_count, "Formal Parameter :: ", node.var, " Type ::" , node.type)
+        self.dec_tab_count()
+
 
     def visit_factor_node(self, node):
         self.node_count += 1
@@ -398,31 +664,10 @@ class PrintNodesVisitor(ASTVisitor):
         self.node_count += 1
         print('\t' * self.tab_count, "New Block => ")
         self.inc_tab_count()
-        
         for st in block_node.stmts:
             st.accept(self)
-        
         self.dec_tab_count()
 
                 
 #Create a print visitor instance
 print_visitor = PrintNodesVisitor()
-
-#assume root node the AST assignment node .... 
-#x=23
-
-
-
-# print("Building AST for assigment statement x=23;")
-# assignment_lhs = ASTVariableNode("x")
-# assignment_rhs = ASTIntegerNode(23)
-# root = ASTAssignmentNode(assignment_lhs, assignment_rhs)
-# root.accept(print_visitor)
-# print("Node Count => ", print_visitor.node_count)
-# print("----")
-# #assume root node the AST variable node .... 
-# #x123 
-# print("Building AST for variable x123;")
-# root = ASTVariableNode("x123")
-# root.accept(print_visitor)
-# print("Node Count => ", print_visitor.node_count)
