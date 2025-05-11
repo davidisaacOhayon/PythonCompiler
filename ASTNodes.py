@@ -187,7 +187,7 @@ class ASTTermNode(ASTExpressionNode):
         self.left = lhs 
         self.right = rhs
         self.type = type
-        
+
     def accept(self, visitor):
         visitor.visit_term_node(self)
 
@@ -673,9 +673,6 @@ class PrintNodesVisitor(ASTVisitor):
             param.accept(self)
         self.dec_tab_count()
         self.dec_tab_count()
-
-        
-
     
     def visit_formalparam_node(self, node):
         self.node_count += 1

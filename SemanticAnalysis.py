@@ -27,15 +27,23 @@ class SemanticAnalyzer:
             currentNode = node.block.stmts[tempIndex]
 
             match type(currentNode):
+                # Assignment node
                 case ast.ASTAssignmentNode:
                     if currentNode.id.lexeme in innerSymbolTable.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already Declared in function {node.name}")
                     innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type }
                     tempIndex += 1
                     continue
-                
+                # ReAssignment node
+                case ast.ASTReAssignNode:
+                    if currentNode.id.lexeme in self.symbol_table.keys():
+                        self.index += 1
+                        continue
+                    else:
+                        raise Exception(f"Variable {currentNode.id.lexeme} isn't defined.")
+                # Declare node ()
                 case ast.ASTDeclareNode:
-                    if currentNode.id in innerSymbolTable :
+                    if currentNode.var in innerSymbolTable :
                         innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type }
                         tempIndex += 1
                         continue
@@ -52,7 +60,7 @@ class SemanticAnalyzer:
 
                 case ast.ASTFunctionCall:
                     if currentNode.name in self.symbol_table.keys():
-                        temp_index += 1
+                        tempIndex += 1
                         continue
                     else:
                         raise Exception(f"Function {currentNode.name} is not defined.")
@@ -81,10 +89,9 @@ class SemanticAnalyzer:
                     self.symbol_table[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type }
                     self.index += 1
                     continue
-
+                # ReAssignment node
                 case ast.ASTReAssignNode:
                     if currentNode.id.lexeme in self.symbol_table.keys():
-                        self.symbol_table[currentNode.id.lexeme]  = { "type" : "reassign", "varType" : currentNode.expr.type }
                         self.index += 1
                         continue
                     else:
@@ -145,11 +152,9 @@ if "__main__" == __name__:
             '''
     
     parserObj = Parser.Parser("""
-                    while ((p1 < p2) and (p2 < 3)){
-                        let x:int = 2;          
-                    }
-                              
-                    test()
+                        let y:int =5 ;
+                        y = y + 5;
+ 
                     """)
     parserObj.Parse()
 

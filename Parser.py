@@ -30,6 +30,7 @@ class Parser:
         self.NextTokenSkipWS()
         while (self.crtToken.type == lex.TokenType.Whitespace):
             self.NextTokenSkipWS()
+            print(self.crtToken.lexeme)
 
     def GetIdentType(self):
             
@@ -92,6 +93,15 @@ class Parser:
                 self.PreviousToken()
                 tempRight = self.ParseSimpleExpression()
 
+            if self.crtToken.type == lex.TokenType.And:
+                # Check if preceding operator exists
+                if oper is None:
+                   oper = self.crtToken.lexeme
+                   self.NextToken()
+                # if exists, parse a nested simple expression e.g. 2 + (3 + 4)
+                else:
+                    self.PreviousToken()
+                    tempRight = self.ParseSimpleExpression()
 
             if (self.crtToken.type == lex.TokenType.Mulop):
                 if oper is None:
@@ -130,6 +140,15 @@ class Parser:
                     self.PreviousToken()
                     tempRight = self.ParseSimpleExpression()
             
+            if (self.crtToken.type == lex.TokenType.Or):
+                # Check if preceding operator exists
+                if oper is None:
+                   oper = self.crtToken.lexeme
+                   self.NextToken()
+                # if exists, parse a nested simple expression e.g. 2 + (3 + 4)
+                else:
+                    self.PreviousToken()
+                    tempRight = self.ParseSimpleExpression()
 
             if (self.crtToken.type == lex.TokenType.Mulop):
                 if oper is None:
@@ -144,7 +163,6 @@ class Parser:
         
         return ast.ASTSimpleExpNode(tempLeft, oper, tempRight)
 
- 
     def ParseExpression(self):
         # Expressions defined as Left <Relop> Right
 
@@ -551,14 +569,18 @@ class Parser:
 
         # Process block before } or ;
         while (self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R and self.crtToken.type != lex.TokenType.Declaration_R):
+ 
             s = self.ParseStatement()
             block.add_statement(s)
+            self.NextToken()
             if (self.crtToken.type == lex.TokenType.End):
-                self.NextToken()
                 # If next token is still END 
-                if (self.crtToken.type == lex.TokenType.End):
+                if (self.crtToken.type == lex.TokenType.End): 
                     return block
- 
+                
+            if (self.crtToken.type == lex.TokenType.Declaration_R):
+                return block
+
 
         return block
 
@@ -579,7 +601,7 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-                    if ( 5 > 2  or 2 < 3) { return 5;}; 
+                    y = 6 + y;
                     """)
     parser.Parse()
 

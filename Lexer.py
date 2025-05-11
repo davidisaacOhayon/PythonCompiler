@@ -337,9 +337,12 @@ class Lexer():
 
 if __name__ == '__main__':
     lex = Lexer("""
-                    while ()
-                    if ()
-
+                    while ( p1 < p2  and  p2 < 3 ){
+                        let x:int = 2; 
+                         let x:int = 5;               
+                    }
+                              
+                    let x:int = 5;
                    
                     """)
     lex.printTokens()
