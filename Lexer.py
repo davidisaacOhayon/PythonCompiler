@@ -52,9 +52,10 @@ class TokenType(Enum):
     WriteBox = 42
     Write = 43 
 
-
-
     FunctionCall = 44
+
+    And = 45
+    Or = 46
 
 
 
@@ -218,9 +219,9 @@ class Lexer():
         elif lexeme in Types.keys():
             return Types[lexeme.lower()], lexeme
         elif lexeme == 'or':
-            return TokenType.Addop, lexeme
+            return TokenType.Or, lexeme
         elif lexeme == 'and':
-            return TokenType.Mulop, lexeme
+            return TokenType.And, lexeme
         elif lexeme in Booleans:
             return TokenType.BooleanLiteral, lexeme
         elif lexeme == 'fun':
@@ -336,7 +337,8 @@ class Lexer():
 
 if __name__ == '__main__':
     lex = Lexer("""
-                    true;
+                    while ()
+                    if ()
 
                    
                     """)

@@ -32,6 +32,7 @@ class Parser:
             self.NextTokenSkipWS()
 
     def GetIdentType(self):
+            
             match self.crtToken.type:
                 case lex.TokenType.IntegerType: return "Int"
                 case lex.TokenType.FloatType: return "Float"
@@ -48,16 +49,12 @@ class Parser:
             self.crtToken = lex.Token(lex.TokenType.End, "END")
 
     def PreviousToken(self):
-        print('Current Token before previous', self.crtToken.lexeme, ' Index', self.index)
-        print('current Index', self.index)
+ 
         self.PreviousTokenSkipWS()
-        print('current Index', self.index)
-        print('Gone back to ', self.crtToken.lexeme)
+ 
         while (self.crtToken.type == lex.TokenType.Whitespace):
             self.PreviousTokenSkipWS()
-            print('current Index', self.index)
-            print('Gone back to ', self.crtToken.lexeme)
-
+ 
     def ReturnASTNode(self):
 
         # This function technically serves as to return a Factor.
@@ -88,18 +85,13 @@ class Parser:
 
 
             if (self.crtToken.type == lex.TokenType.Relop):
-                # Check if preceding operator exists
-                if oper is None:
-                   oper = self.crtToken.lexeme
-                   self.NextToken()
-                # if exists, parse a nested expression e.g. 2 + (3 < 4)
-                else:
-                    self.PreviousToken()
-                    tempRight = self.ParseExpression()
+                return ast.ASTTermNode(tempLeft, oper, tempRight)
+ 
             
             if self.crtToken.type == lex.TokenType.Addop:
                 self.PreviousToken()
                 tempRight = self.ParseSimpleExpression()
+
 
             if (self.crtToken.type == lex.TokenType.Mulop):
                 if oper is None:
@@ -108,6 +100,7 @@ class Parser:
                 else:
                     self.PreviousToken()
                     tempRight = self.ParseTerm()
+
         
         print(f'Creating Term Node with {tempLeft}, {oper} and {tempRight}')
         return ast.ASTTermNode(tempLeft, oper, tempRight)
@@ -116,7 +109,6 @@ class Parser:
         tempLeft = tempRight = oper = None
         # Parse Expression until ; or ) or } is hit
         while self.crtToken.type not in [lex.TokenType.End, lex.TokenType.Parameter_R, lex.TokenType.Declaration_R]:
-
             if (self.crtToken.type in self.tokenTypes):
                 if tempLeft is None:
                     tempLeft = self.ReturnASTNode()
@@ -126,16 +118,7 @@ class Parser:
 
 
             if (self.crtToken.type == lex.TokenType.Relop):
-                # Check if preceding operator exists
-                if oper is None:
-                   oper = self.crtToken.lexeme
-                   self.NextToken()
-                # if exists, parse a nested expression e.g. (2 + 3) < 4
-                else:
-                    relop = self.crtToken.lexeme
-                    self.NextToken()
-                    tempRight = self.ParseExpression()
-                    return ast.ASTExpNode(tempLeft, None, relop, tempRight )
+                return ast.ASTSimpleExpNode(tempLeft, oper, tempRight)
 
             if (self.crtToken.type == lex.TokenType.Addop):
                 # Check if preceding operator exists
@@ -147,56 +130,97 @@ class Parser:
                     self.PreviousToken()
                     tempRight = self.ParseSimpleExpression()
             
+
             if (self.crtToken.type == lex.TokenType.Mulop):
                 if oper is None:
                     oper = self.crtToken.lexeme
                     self.NextToken()
                 else:
                     self.PreviousToken()
-                    print(f'Left {tempLeft}, Operator {oper}, Right {tempRight}')
+ 
                     tempRight = self.ParseTerm()
 
 
         
         return ast.ASTSimpleExpNode(tempLeft, oper, tempRight)
-                          
+
+ 
     def ParseExpression(self):
         # Expressions defined as Left <Relop> Right
 
         left = None
-        # print(self.crtToken.lexeme)
+
         if self.crtToken.type in self.tokenTypes:
+            # Assign lhs
             left = self.ReturnASTNode()
-            self.NextToken()
-
-        # For N <Relop> N expressions
-        if self.crtToken.type == lex.TokenType.Relop:
-            op = self.crtToken.lexeme
-            self.NextToken()
-            tempRight = None
-            if self.crtToken.type in self.tokenTypes:
-                tempRight = self.ReturnASTNode()
-
-                self.NextToken()
-
-                # Case Where N <Op> m <Op> P ....
-                if self.crtToken.type in [lex.TokenType.Addop, lex.TokenType.Mulop, lex.TokenType.Relop]:
-                    self.PreviousToken()
-                    tempRight = self.ParseExpression()
-        
-            # NOTE : This is a simple implementation of the above logic, EXPRESSIONS FOR NOW ARE ONLY TEMPORARILY ASSIGNED OF TYPE NONE, FIX ASAP.
-            return ast.ASTExpNode(left, None, op, tempRight)
-
             
-        # For N <Addop> M expressions
-        if self.crtToken.type == lex.TokenType.Addop:
-            self.PreviousToken()
-            left = self.ParseSimpleExpression()
+            self.NextToken()
 
-        # For N <Mulop> M expressions
-        if self.crtToken.type == lex.TokenType.Mulop:
-            self.PreviousToken()
-            left = self.ParseTerm()
+ 
+        while self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R:
+ 
+            # For N <Relop> N expressions
+            if self.crtToken.type == lex.TokenType.Relop:
+                # Get operator
+                op = self.crtToken.lexeme
+                self.NextToken()
+                # Initiate Rhs for exp
+                tempRight = None
+                if self.crtToken.type in self.tokenTypes:
+                    tempRight = self.ReturnASTNode()
+
+                    self.NextToken()
+
+                    # Case Where N <Op> m <Op> P ....
+                    if self.crtToken.type in [lex.TokenType.Addop, lex.TokenType.Mulop, lex.TokenType.Relop]:
+                        self.PreviousToken()
+                        tempRight = self.ParseExpression()
+
+                    # Case where N and M
+                    if self.crtToken.type == lex.TokenType.And:
+                        # Declare preceding Expression N
+                        tempLeft = ast.ASTExpNode(left, None, op, tempRight)
+                        # Get AND operator
+                        oper = self.crtToken.lexeme
+                        # Jump next token
+                        self.NextToken()
+                        # Parse new Right expression M
+                        tempRight = self.ParseExpression()
+                        # Return resulting expression
+                        return ast.ASTExpNode(tempLeft, None, oper, tempRight)
+                    
+                    # Case where N or M
+                    if self.crtToken.type == lex.TokenType.Or:
+                        # Declare preceding Expression N
+                        tempLeft = ast.ASTExpNode(left, None, op, tempRight)
+                        # Get AND operator
+                        oper = self.crtToken.lexeme
+                        # Jump next token
+                        self.NextToken()
+                        # Parse new Right expression M
+                        tempRight = self.ParseExpression()
+                        # Return resulting expression
+                        return ast.ASTExpNode(tempLeft, None, oper, tempRight)
+                        
+            
+
+                return ast.ASTExpNode(left, None, op, tempRight)
+
+            if self.crtToken.type == lex.TokenType.And:
+                op = self.crtToken.lexeme
+                self.NextToken()
+                right = self.ParseTerm()
+                return ast.ASTExpNode(left, None, op, right)
+
+            # For N <Addop> M expressions
+            if self.crtToken.type == lex.TokenType.Addop:
+                self.PreviousToken()
+                left = self.ParseSimpleExpression()
+
+            # For N <Mulop> M expressions
+            if self.crtToken.type == lex.TokenType.Mulop:
+                self.PreviousToken()
+                left = self.ParseTerm()
 
         return left
 
@@ -269,7 +293,7 @@ class Parser:
         arg = 0
         arg5 = None
         while (self.crtToken.type != lex.TokenType.End):
-            print(self.crtToken.lexeme)    
+  
             if self.crtToken.type == lex.TokenType.WriteBox:
                 self.NextToken()
                 print(self.crtToken.lexeme)
@@ -307,7 +331,6 @@ class Parser:
 
         return ast.ASTWriteBoxNode(args[1], args[2], args[3], args[4], arg5)
         
-
     def ParseWrite(self):
         print(self.crtToken.lexeme)
         args = {}
@@ -315,7 +338,7 @@ class Parser:
         arg4 = None
         while (self.crtToken.type != lex.TokenType.End):
             print(self.crtToken.lexeme)    
-            if self.crtToken.type == lex.TokenType.WriteBox:
+            if self.crtToken.type == lex.TokenType.Write:
                 self.NextToken()
                 print(self.crtToken.lexeme)
                 continue
@@ -344,15 +367,14 @@ class Parser:
                 print(self.crtToken.lexeme)
                 continue
             else:
+                print(self.crtToken.lexeme)
                 raise SyntaxError("Invalid arguments for write statement.")
 
                     
         if not arg4:
             raise SyntaxError("Invalid argument for color in write statement.")
 
-        return ast.ASTWriteBoxNode(args[1], args[2], args[3], arg4)
-        
-
+        return ast.ASTWriteNode(args[1], args[2], arg4)
 
     def ParseIf(self):
         
@@ -421,7 +443,6 @@ class Parser:
         
         self.NextToken()
         self.NextToken()
-        print("wtf", self.crtToken)
         block = self.ParseBlock()
 
         return ast.ASTWhileNode(expr, block)
@@ -429,7 +450,9 @@ class Parser:
     def ParseKeyword(self):
         if self.crtToken.lexeme == "return":
             self.NextToken()
-            return ast.ASTReturnNode(self.ParseExpression()) 
+            type = self.crtToken.type
+            
+            return ast.ASTReturnNode(self.ParseExpression(), type) 
     
         elif self.crtToken.lexeme == "if":
             return self.ParseIf()
@@ -442,45 +465,64 @@ class Parser:
         
         elif self.crtToken.lexeme == "let":
             return self.ParseAssignment()
-           
+
+# Used for redeclaring values of variables 
+    def ParseReassignment(self):
+        if self.crtToken.type == lex.TokenType.Identifier:
+            assignment_lhs = ast.ASTVariableNode(self.crtToken.lexeme)
+            self.NextToken()
+
+        if (self.crtToken.type == lex.TokenType.AssignOp):
+            self.NextToken()
+            tempRhs = self.ParseExpression()
+            assignment_rhs = ast.ASTExpNode(tempRhs, tempRhs.type)
+
+            return ast.ASTReAssignNode(assignment_lhs, assignment_rhs)
+        else:
+            raise SyntaxError("Invalid Statement")
+
     def ParseAssignment(self):  
         expType = None
         if (self.crtToken.lexeme == "let"):
-            self.NextToken();
+            self.NextToken()
 
         #Assignment is made up of two main parts; the LHS (the variable) and RHS (the expression)
         if (self.crtToken.type == lex.TokenType.Identifier):
             #create AST node to store the identifier            
             assignment_lhs = ast.ASTVariableNode(self.crtToken.lexeme)
             self.NextToken()
-            #print("Variable Token Matched ::: Nxt Token is ", self.crtToken.type, self.crtToken.lexeme)
+            # Check if statement is in the form x = expr (reassignment)
+            if (self.crtToken.type == lex.TokenType.AssignOp):
+                self.PreviousToken()
+                assignment_rhs = self.ParseReassignment()
+                return assignment_rhs
+
         if (self.crtToken.type == lex.TokenType.Colon):
 
             self.NextToken()
             
             expType = self.GetIdentType()
             
-            print(self.crtToken.lexeme)
-            
             self.NextToken()
              
         if (self.crtToken.type == lex.TokenType.AssignOp):
-            print(self.crtToken.lexeme)
+ 
             self.NextToken()
-            print(self.crtToken.lexeme)
+ 
             #Next sequence of tokens should make up an expression ... therefor call ParseExpression that will return the subtree representing that expression
             tempRhs = self.ParseExpression()
 
             assignment_rhs = ast.ASTExpNode(tempRhs, expType)
 
             return ast.ASTAssignmentNode(assignment_lhs, assignment_rhs)
-            #print("EQ Token Matched ::: Nxt Token is ", self.crtToken.type, self.crtToken.lexeme)
-
+ 
         # If Token meets an end, this is a declaration. (i.e. x:int;)
         elif (self.crtToken.type == lex.TokenType.End or self.crtToken.type == lex.TokenType.Comma or self.crtToken.type == lex.TokenType.Parameter_R):
+          
           return ast.ASTDeclareNode(assignment_lhs, expType)
 
     def ParseStatement(self):
+        print(self.crtToken.lexeme)
         #At the moment we only have assignment statements .... you'll need to add more for the assignment - branching depends on the token type
         if self.crtToken.type == lex.TokenType.Identifier:
             return self.ParseAssignment()
@@ -497,6 +539,10 @@ class Parser:
         elif self.crtToken.type == lex.TokenType.WriteBox:
             return self.ParseWriteBox()
         
+        elif self.crtToken.type == lex.TokenType.Write:
+            return self.ParseWrite()
+        
+        print(self.crtToken.lexeme)
         raise SyntaxError("Invalid Statement")
         
     def ParseBlock(self):
@@ -512,10 +558,7 @@ class Parser:
                 # If next token is still END 
                 if (self.crtToken.type == lex.TokenType.End):
                     return block
-            # else:
-            #     print(self.crtToken.lexeme)
-            #     raise SyntaxError("Syntax Error - Missing ; or }")
-            #     break
+ 
 
         return block
 
@@ -536,10 +579,7 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-                    for ( let v: int = 0 ; v < h ; v = v + 1){
-                        __write u,s,1,#3818fa;
-                    }
-                    
+                    if ( 5 > 2  or 2 < 3) { return 5;}; 
                     """)
     parser.Parse()
 

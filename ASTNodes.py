@@ -1,3 +1,6 @@
+
+import Lexer as lex
+
 #First some AST Node classes we'll use to build the AST with
 class ASTNode:
     def __init__(self):
@@ -17,6 +20,7 @@ class ASTStatementNode(ASTNode):
 class ASTExpressionNode(ASTNode):
     def __init__(self):
         self.name = "ASTExpressionNode"
+        self.type = None
 
 class ASTVariableNode(ASTExpressionNode):
     def __init__(self, lexeme):
@@ -30,6 +34,7 @@ class ASTUnaryNode(ASTExpressionNode):
     def __init__(self, lexeme):
         self.name = "ASTUnaryNode"
         self.lexeme = lexeme
+
     def accept(self, visitor):
         visitor.visit_unary_node(self)
 
@@ -37,17 +42,18 @@ class ASTFactorNode(ASTExpressionNode):
     def __init__(self, lexeme, type):
         self.name = "ASTFactorNode"
         self.lexeme = lexeme
-        self. type = type
+        self.type = type
     
     def accept(self, visitor):
         visitor.visit_factor_node(self)
 
 class ASTSimpleExpNode(ASTExpressionNode):
-    def __init__(self, lhs, adop=None, rhs=None):
+    def __init__(self, lhs, adop=None, rhs=None, type = None):
         self.name = "ASTAdopNode"
         self.adop = adop
         self.left = lhs 
         self.right = rhs
+        self.type = type
     
     def accept(self, visitor):
         visitor.visit_simpleexp_node(self)
@@ -59,6 +65,7 @@ class ASTExpNode(ASTExpressionNode):
         self.left = lhs
         self.right = rhs
         self.type = type
+
     def accept(self,visitor):
         visitor.visit_exp_node(self)
 
@@ -72,21 +79,13 @@ class ASTDeclareNode(ASTNode):
         visitor.visit_declare_node(self)
 
 class ASTReturnNode(ASTNode):
-    def __init__(self, expr):
+    def __init__(self, expr, type):
         self.name = "ASTReturnNode"
         self.expr = expr
-        self.type = None
+        self.type = type
     
     def accept(self, visitor):
         visitor.visit_return_node(self)
-
-class ASTFunctionCall(ASTNode):
-    def __init__(self, params = None):
-        self.name = "ASTFunctionCall"
-        self.params = params
-
-    def accept(self, visitor):
-        visitor.visit_func_call(self)
 
 class ASTIfNode(ASTNode):
     def __init__(self, conds, block, elseBlock = None):
@@ -118,16 +117,18 @@ class ASTWhileNode(ASTNode):
     def accept(self, visitor):
         visitor.visit_while_node(self)
 
-class ASTWidthNode(ASTNode):
+class ASTWidthNode(ASTExpressionNode):
     def __init__(self):
         self.name = "ASTWidthNode"
+        self.type = lex.TokenType.Integer
     
     def accept(self, visitor):
         visitor.visit_width_node(self)
 
-class ASTHeightNode(ASTNode):
+class ASTHeightNode(ASTExpressionNode):
     def __init__(self):
         self.name = "ASTHeightNode"
+        self.type = lex.TokenType.Integer
     
     def accept(self, visitor):
         visitor.visit_height_node(self)
@@ -180,12 +181,13 @@ class ASTPrintNode(ASTNode):
           visitor.visit_print_node(self)
 
 class ASTTermNode(ASTExpressionNode):
-    def __init__(self, lhs, mulop=None, rhs=None):
+    def __init__(self, lhs, mulop=None, rhs=None, type=None):
         self.name = "ASTTermNode"
         self.mulop = mulop
         self.left = lhs 
         self.right = rhs
-    
+        self.type = type
+        
     def accept(self, visitor):
         visitor.visit_term_node(self)
 
@@ -193,7 +195,7 @@ class ASTIntegerNode(ASTExpressionNode):
     def __init__(self, v):
         self.name = "ASTIntegerNode"
         self.value = v
-
+        self.type = lex.TokenType.Integer
     def accept(self, visitor):
         visitor.visit_integer_node(self)   
 
@@ -201,6 +203,7 @@ class ASTColourNode(ASTExpressionNode):
     def __init__(self, colour):
         self.name = "ASTColourNode"
         self.colour = colour
+        self.type = lex.TokenType.ColourLiteral
 
     def accept(self, visitor):
         visitor.visit_colour_node(self)
@@ -208,7 +211,8 @@ class ASTColourNode(ASTExpressionNode):
 class ASTFloatNode(ASTExpressionNode):
     def __init__(self,v):
         self.name = 'ASTFloatNode'
-        self.value = v   
+        self.value = v  
+        self.type = lex.TokenType.FloatLiteral 
     
     def accept(self, visitor):
         visitor.visit_float_node(self)
@@ -217,6 +221,7 @@ class ASTBoolNode(ASTExpressionNode):
     def __init__(self, v : bool):
         self.name = "ASTBoolNode"
         self.value = v
+        self.type = lex.TokenType.BooleanLiteral 
 
     def accept(self, visitor):
         visitor.visit_bool_node(self)
@@ -225,18 +230,29 @@ class ASTStringNode(ASTExpressionNode):
     def __init__ (self, string):
         self.name = "ASTStringNode"
         self.string = string 
+        self.type = lex.TokenType.String
     
     def accept(self, visitor):
         visitor.visit_string_node(self)
  
-class ASTAssignmentNode(ASTStatementNode):
-    def __init__(self, ast_var_node, ast_expression_node):
-        self.name = "ASTStatementNode"        
-        self.id   = ast_var_node
+class ASTAssignmentNode(ASTNode):
+    def __init__(self, id, ast_expression_node):
+        self.name = "ASTAssignmentNode"        
+        self.id   = id
         self.expr = ast_expression_node
 
     def accept(self, visitor):
-        visitor.visit_assignment_node(self)                
+        visitor.visit_assignment_node(self)       
+
+class ASTReAssignNode(ASTNode):
+    def __init__(self, id, expr):
+        self.name = "ASTReAssignNode"
+        self.id = id
+        self.expr = expr
+    
+    def accept(self, visitor):
+        visitor.visit_reassign_node(self)
+         
 
 class ASTActualParamsNode(ASTNode):
     def __init__(self):
@@ -258,7 +274,6 @@ class ASTFormalParamNode(ASTNode):
     def accept(self, visitor):
         visitor.visit_formalparam_node(self)
 
-
 class ASTFormalParamsNode(ASTNode):
     def __init__(self):
         self.name = 'ASTActualParamsNode'
@@ -270,7 +285,6 @@ class ASTFormalParamsNode(ASTNode):
     def accept(self, visitor):  
         visitor.visit_formalparams_node(self)
 
-        
 class ASTFunctionNode(ASTNode):
     def __init__(self, name=None, params= ASTFormalParamsNode() ):
         self.name = "ASTFunctionNode"
@@ -285,6 +299,14 @@ class ASTFunctionNode(ASTNode):
 
     def accept(self, visitor):
         visitor.visit_func_node(self)
+
+class ASTFunctionCall(ASTNode):
+    def __init__(self, params = None):
+        self.name = "ASTFunctionCall"
+        self.params = params
+
+    def accept(self, visitor):
+        visitor.visit_func_call(self)
 
 class ASTBlockNode(ASTNode):
     def __init__(self):
@@ -302,6 +324,9 @@ class ASTVisitor:
         raise NotImplementedError()
 
     def visit_assignment_node(self, node):
+        raise NotImplementedError()
+    
+    def visit_reassign_node(self, node):
         raise NotImplementedError()
     
     def visit_program_node(self,node):
@@ -339,7 +364,6 @@ class ASTVisitor:
 
     def visit_func_call(self, node):
         raise NotImplementedError()
-    
     
     def visit_exp_node(self, node):
         raise NotImplementedError()
@@ -453,6 +477,14 @@ class PrintNodesVisitor(ASTVisitor):
         ass_node.expr.accept(self)
         self.dec_tab_count()
 
+    def visit_reassign_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "Reassignment node => ")
+        self.inc_tab_count()        
+        node.id.accept(self)
+        node.expr.accept(self)
+        self.dec_tab_count()
+ 
     def visit_width_node(self, node):
         self.node_count += 1
         self.inc_tab_count()    
@@ -547,6 +579,7 @@ class PrintNodesVisitor(ASTVisitor):
         self.node_count += 1
         print('\t' * self.tab_count, "Return node => ")
         self.inc_tab_count()
+        print('\t' * self.tab_count, "Return Type ::  ", node.type)
         node.expr.accept(self)
         self.dec_tab_count()
     
