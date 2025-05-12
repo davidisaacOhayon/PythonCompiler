@@ -253,7 +253,6 @@ class ASTReAssignNode(ASTNode):
     def accept(self, visitor):
         visitor.visit_reassign_node(self)
          
-
 class ASTActualParamsNode(ASTNode):
     def __init__(self):
         self.name = 'ASTActualParamsNode'
@@ -263,7 +262,7 @@ class ASTActualParamsNode(ASTNode):
         self.params.append(param)
     
     def accept(self, visitor):  
-        visitor.visit_actual_params_node(self)
+        visitor.visit_actualparams_node(self)
 
 class ASTFormalParamNode(ASTNode):
     def __init__(self, var, type):
@@ -276,7 +275,7 @@ class ASTFormalParamNode(ASTNode):
 
 class ASTFormalParamsNode(ASTNode):
     def __init__(self):
-        self.name = 'ASTActualParamsNode'
+        self.name = 'ASTFormalParamsNode'
         self.params = []
 
     def add_params(self, param):
@@ -461,8 +460,7 @@ class PrintNodesVisitor(ASTVisitor):
         print('\t' * self.tab_count, "Function Name ::", func_call.name)
         print('\t' * self.tab_count, "Arguments:: ")
         self.inc_tab_count()
-        for arg in func_call.params:
-            arg.accept(self)
+        func_call.params.accept(self)
         self.dec_tab_count()
    
     def visit_bool_node(self, node):
@@ -662,7 +660,10 @@ class PrintNodesVisitor(ASTVisitor):
 
     def visit_actualparams_node(self, node):
         self.node_count += 1
-        self.inc_tab_count()
+ 
+        for param in node.params:
+            param.accept(self)
+
 
     def visit_formalparams_node(self, node):
         self.node_count += 1

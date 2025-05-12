@@ -144,7 +144,6 @@ class Parser:
         
         return ast.ASTSimpleExpNode(tempLeft, oper, tempRight)
 
- 
     def ParseExpression(self):
         # Expressions defined as Left <Relop> Right
 
@@ -222,7 +221,22 @@ class Parser:
                 self.PreviousToken()
                 left = self.ParseTerm()
 
+
         return left
+
+    def ParseActualParameters(self):
+
+        temp_params = ast.ASTActualParamsNode()
+
+        while self.crtToken.type != lex.TokenType.Parameter_R:
+            print(self.crtToken.lexeme)
+            if self.crtToken.type == lex.TokenType.Comma:
+                self.NextToken()
+                continue
+            else:
+                temp_params.add_params(self.ReturnASTNode())
+            self.NextToken()
+        return temp_params
 
     def ParseParameters(self):
         tType = None
@@ -277,12 +291,10 @@ class Parser:
             funcName = self.crtToken.lexeme.replace('(', '')
             tempFuncCall = ast.ASTFunctionCall()
             tempFuncCall.name = funcName
-            tempParams = []
             
         while(self.crtToken.type != lex.TokenType.Parameter_R):
             self.NextToken()
-            param = self.ParseExpression()
-            tempParams.append(param)
+            tempParams = self.ParseActualParameters()
             if (self.crtToken.type == lex.TokenType.Parameter_R):
                 tempFuncCall.params = tempParams
         return tempFuncCall
@@ -558,6 +570,9 @@ class Parser:
                 # If next token is still END 
                 if (self.crtToken.type == lex.TokenType.End):
                     return block
+                
+            if (self.crtToken.type == lex.TokenType.Declaration_R):
+                return block
  
 
         return block
@@ -579,7 +594,9 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-                    if ( 5 > 2  or 2 < 3) { return 5;}; 
+                    while ( x > 2) { return 5; }
+
+                    let x:int = 5;
                     """)
     parser.Parse()
 

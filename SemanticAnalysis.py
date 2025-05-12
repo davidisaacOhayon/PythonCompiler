@@ -64,6 +64,9 @@ class SemanticAnalyzer:
             raise Exception(f"Funciton {node.name} returns no value.")
 
 
+    # def analyze_params(self, params):
+
+
     def analyze(self):
         # Get root block
         Block = self.root.block
@@ -145,11 +148,8 @@ if "__main__" == __name__:
             '''
     
     parserObj = Parser.Parser("""
-                    while ((p1 < p2) and (p2 < 3)){
-                        let x:int = 2;          
-                    }
-                              
-                    test()
+
+                    test();
                     """)
     parserObj.Parse()
 
