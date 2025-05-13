@@ -5,10 +5,13 @@ import ASTNodes as ast
 
 
 
+# Note: token types were separated (e.g. Integer & Integertype) to prevent
+# identifiers such as int from being parsed as actual Integer nodes with a value holder.
+# So, we're relying on this type exchange.
 
-# typetable = {lex.TokenType.BooleanLiteral : lex.TokenType.BoolType, lex.TokenType.}
-
-
+types = {lex.TokenType.Integer : lex.TokenType.IntegerType,
+         lex.TokenType.FloatLiteral : lex.TokenType.FloatType,
+         lex.TokenType.BooleanLiteral : lex.TokenType.BoolType}
 
 class SemanticAnalyzer:
     def __init__(self, root):
@@ -45,7 +48,7 @@ class SemanticAnalyzer:
                 
 
                 case ast.ASTReturnNode:
-                    if currentNode.type != returnType:
+                    if types[currentNode.type] != returnType:
                         raise SyntaxError(f"return type in {node.name} does not match defined return type of function. Expected {returnType}, got {currentNode.type}")
                     hasReturn = True
                     tempIndex += 1
@@ -100,7 +103,7 @@ class SemanticAnalyzer:
                 
                 case ast.ASTFunctionNode:
                     if currentNode.name not in self.symbol_table.keys():
-                            self.symbol_table[currentNode.name] = {"func_name" : currentNode.name, "type" : "function", "returnType" : currentNode.returnType }
+                            self.symbol_table[currentNode.name] = {"func_name" : currentNode.name, "type" : "function", "returnType" : currentNode.returnType, "param_types" : [x.type for x in currentNode.params.params] }
                             self.analyze_block(currentNode)
                             self.index += 1
                             continue
@@ -108,7 +111,20 @@ class SemanticAnalyzer:
 
 
                 case ast.ASTFunctionCall:
+                    # Check if function is defined
                     if currentNode.name in self.symbol_table.keys():
+                        # Get function
+                        function = self.symbol_table[currentNode.name]
+                        # check if paramters match
+                        if not len(currentNode.params.params) == len(function["param_types"]):
+                            raise SyntaxError(f"Parameters of function call {currentNode.name} does not match definition.")
+                        
+                        # match parameter types
+                        for i, param in enumerate(currentNode.params.params):
+                            # Parameter locations should match
+                            if types[param.type] != function["param_types"][i]:
+                                raise SyntaxError(f"Parameter types of call {currentNode.name} do not match function definition.")
+
                         self.index += 1
                         continue
                     else:
@@ -144,12 +160,20 @@ class SemanticAnalyzer:
 if "__main__" == __name__:
 
     input = '''
-                int x = 5;  
+                if (x == 2) {
+                    return 5;
+                }
             '''
     
     parserObj = Parser.Parser("""
 
-                    test();
+                    fun test(x:int, y:bool) -> int {
+                        return 5;
+                    }
+
+                    test(5, true);
+                              
+
                     """)
     parserObj.Parse()
 

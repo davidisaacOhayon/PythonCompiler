@@ -1,5 +1,6 @@
 import Parser as Parser
 import Lexer as lex
+import SemanticAnalysis as sem
 import ASTNodes as ast
 
 
@@ -57,11 +58,18 @@ if "__main__" == __name__:
             '''
     
     parserObj = Parser.Parser("""
-                    test(5, true);
-                    
+                              
+                    fun test(x:bool) -> int{
+                        if (x == true){
+                              return 5;
+                        }
+                    }
+                              
                     """)
     parserObj.Parse()
 
+    sAnalyzer = sem.SemanticAnalyzer(parserObj.ASTroot)
+    sAnalyzer.analyze()
     print_visitor = ast.PrintNodesVisitor()
     parserObj.ASTroot.accept(print_visitor)
 

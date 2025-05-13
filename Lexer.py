@@ -31,7 +31,7 @@ class TokenType(Enum):
     Relation = 27
     Unary = 28
     ColourLiteral = 29
-    Relop = 30
+    Relop = 47
 
 
     # Token Typing for Identifiers
@@ -140,7 +140,7 @@ class Lexer():
                  'funCall' : 25
             },
             # String
-            1 : {'letter' : 1, 'digit' : 1, '_' : 1, 'parameter_L' : 25},
+            1 : {'letter' : 1, 'digit' : 1, '_' : 1},
             # Digit
             2 : {'digit' : 2, "." : 10},
             # Comment
@@ -174,7 +174,6 @@ class Lexer():
             22 : {',' : 22},
             23 : {':' : 23},
             24 : {'relop' : 24, 'assign_op' : 24},  
-            25 : {'parameter_R' : 25},
             
 
 
@@ -217,7 +216,7 @@ class Lexer():
         if lexeme in Keywords:
             return TokenType.Keyword, lexeme
         elif lexeme in Types.keys():
-            return Types[lexeme.lower()], lexeme
+            return Types[lexeme], lexeme
         elif lexeme == 'or':
             return TokenType.Or, lexeme
         elif lexeme == 'and':
@@ -336,11 +335,7 @@ class Lexer():
 
 
 if __name__ == '__main__':
-    lex = Lexer("""
-                    while ()
-                    if ()
-
-                   
+    lex = Lexer("""test()
                     """)
     lex.printTokens()
 

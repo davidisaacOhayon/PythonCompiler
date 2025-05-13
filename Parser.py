@@ -3,6 +3,7 @@
 # A small predictive recursive descent parser
 import ASTNodes as ast
 import Lexer as lex
+import re
 class Parser:
     def __init__(self, src_program_str):
         self.name = "PARSEAR"
@@ -11,6 +12,7 @@ class Parser:
         self.src_program = src_program_str
         self.tokens = self.lexer.tokens
         self.tokenTypes = [lex.TokenType.Integer, lex.TokenType.FloatLiteral, lex.TokenType.BooleanLiteral, lex.TokenType.ColourLiteral, lex.TokenType.Identifier,lex.TokenType.PadRandI, lex.TokenType.PadHeight, lex.TokenType.PadWidth, lex.TokenType.PadRead]
+        self.datatypes = [lex.TokenType.IntegerType, lex.TokenType.FloatType, lex.TokenType.CharType, lex.TokenType.StringType, lex.TokenType.ColourType, lex.TokenType.BoolType]
         self.commands = [lex.TokenType.WriteBox, lex.TokenType.Print, lex.TokenType.Write]
         print("[Parser] Lexer generated token list ::")
         for t in self.tokens:
@@ -58,7 +60,7 @@ class Parser:
     def ReturnASTNode(self):
 
         # This function technically serves as to return a Factor.
-
+        print(self.crtToken.lexeme)
         match self.crtToken.type:
             case lex.TokenType.Integer: return ast.ASTIntegerNode(self.crtToken.lexeme)
             case lex.TokenType.FloatLiteral : return ast.ASTFloatNode(self.crtToken.lexeme)
@@ -69,7 +71,7 @@ class Parser:
             case lex.TokenType.PadWidth : return ast.ASTWidthNode()
             case lex.TokenType.PadHeight : return ast.ASTHeightNode()
             case _:
-                return 
+                raise SyntaxError("Invalid Type Input")
 
     def ParseTerm(self):
         tempLeft = tempRight = oper = None
@@ -236,7 +238,8 @@ class Parser:
             else:
                 temp_params.add_params(self.ReturnASTNode())
             self.NextToken()
-        return temp_params
+
+        return temp_params 
 
     def ParseParameters(self):
         tType = None
@@ -248,7 +251,7 @@ class Parser:
             self.NextToken()
             if (self.crtToken.type == lex.TokenType.Colon):
                 self.NextToken()
-                tType = self.GetIdentType()
+                tType = self.crtToken.type
                 param = ast.ASTFormalParamNode(tName, tType)
                 self.NextToken()
         return param
@@ -257,23 +260,31 @@ class Parser:
         if (self.crtToken.type == lex.TokenType.Function):
             tempFunc = ast.ASTFunctionNode()
 
+
+            # Complication Note: the parser is meant to deal with cases where the token comes in as fun testFun( or fun testFun()
+            # The reason for this is because the parser needs to distinguish between a function call token and a function token
+            #     
             # Skip whitespacesto get func name 
             self.NextToken()
-            if (self.crtToken.type == lex.TokenType.FunctionCall):
-                tempFunc.name = self.crtToken.lexeme.replace('(', '')
-            # Get Parameters
+            if (self.crtToken.type == lex.TokenType.Identifier):
+                # Get function name
+                tempFunc.name = self.crtToken.lexeme
+                self.NextToken()
 
-            # if (self.crtToken.type == lex.TokenType.Parameter_L):
+                
             while(self.crtToken.type != lex.TokenType.Parameter_R):
                 self.NextToken()
-                print(self.crtToken.lexeme)
                 params = self.ParseParameters()
                 tempFunc.params.add_params(params)
+
+
             self.NextToken()
 
             if (self.crtToken.type == lex.TokenType.CastOp):
                 self.NextToken()
-                tempFunc.returnType = self.GetIdentType()
+                print(self.crtToken.lexeme)
+                print(self.crtToken.type)
+                tempFunc.returnType = self.crtToken.type
                 self.NextToken()
             
             if (self.crtToken.type == lex.TokenType.Declaration_L):
@@ -286,17 +297,21 @@ class Parser:
         return tempFunc
    
     def ParseFunctionCall(self):
-        if self.crtToken.type == lex.TokenType.FunctionCall:
+        tempParams = ast.ASTActualParamsNode()
+
+        if self.crtToken.type == lex.TokenType.Identifier:
             # Remove brackets to retrieve name
-            funcName = self.crtToken.lexeme.replace('(', '')
+            funcName = self.crtToken.lexeme
             tempFuncCall = ast.ASTFunctionCall()
             tempFuncCall.name = funcName
-            
-        while(self.crtToken.type != lex.TokenType.Parameter_R):
             self.NextToken()
-            tempParams = self.ParseActualParameters()
-            if (self.crtToken.type == lex.TokenType.Parameter_R):
-                tempFuncCall.params = tempParams
+
+            if self.crtToken.type == lex.TokenType.Parameter_L:
+                self.NextToken()
+                tempParams = self.ParseActualParameters()
+
+            tempFuncCall.params = tempParams
+
         return tempFuncCall
        
     def ParseWriteBox(self):
@@ -462,7 +477,9 @@ class Parser:
     def ParseKeyword(self):
         if self.crtToken.lexeme == "return":
             self.NextToken()
+            print(self.crtToken.lexeme)
             type = self.crtToken.type
+            print(self.crtToken.type)
             
             return ast.ASTReturnNode(self.ParseExpression(), type) 
     
@@ -497,6 +514,13 @@ class Parser:
         expType = None
         if (self.crtToken.lexeme == "let"):
             self.NextToken()
+        
+        if (self.crtToken.type == lex.TokenType.Identifier):
+            self.NextToken()
+            # Check if identifier is actually a function call
+            if (self.crtToken.type == lex.TokenType.Parameter_L):
+                self.PreviousToken()
+                return self.ParseFunctionCall()
 
         #Assignment is made up of two main parts; the LHS (the variable) and RHS (the expression)
         if (self.crtToken.type == lex.TokenType.Identifier):
@@ -513,7 +537,7 @@ class Parser:
 
             self.NextToken()
             
-            expType = self.GetIdentType()
+            expType = self.crtToken.type
             
             self.NextToken()
              
@@ -572,6 +596,7 @@ class Parser:
                     return block
                 
             if (self.crtToken.type == lex.TokenType.Declaration_R):
+                self.NextToken()
                 return block
  
 
@@ -594,9 +619,13 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-                    while ( x > 2) { return 5; }
 
-                    let x:int = 5;
+                    fun test(x:int, y:bool) -> int {
+                        return 5;
+                    }
+
+                    test(5, true);
+ 
                     """)
     parser.Parse()
 
