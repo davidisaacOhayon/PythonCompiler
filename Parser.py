@@ -25,6 +25,7 @@ class Parser:
         self.index += 1   #Grab the next token
         if (self.index < len(self.tokens)):
             self.crtToken = self.tokens[self.index]
+            print(f'changed to {self.crtToken.lexeme}')
         else:
             self.crtToken = lex.Token(lex.TokenType.End, "END")
 
@@ -260,7 +261,6 @@ class Parser:
         if (self.crtToken.type == lex.TokenType.Function):
             tempFunc = ast.ASTFunctionNode()
 
-
             # Complication Note: the parser is meant to deal with cases where the token comes in as fun testFun( or fun testFun()
             # The reason for this is because the parser needs to distinguish between a function call token and a function token
             #     
@@ -420,7 +420,6 @@ class Parser:
             self.NextToken()
             print('changed 3 : ', self.crtToken.lexeme)
             block = self.ParseBlock()
-            self.NextToken()
             
 
         if self.crtToken.lexeme == "else":
@@ -484,13 +483,19 @@ class Parser:
             return ast.ASTReturnNode(self.ParseExpression(), type) 
     
         elif self.crtToken.lexeme == "if":
-            return self.ParseIf()
+            parsedIf = self.ParseIf()
+            return parsedIf
         
         elif self.crtToken.lexeme == "for":
-            return self.ParseFor()
+            parsedFor = self.ParseFor()
+            self.NextToken()
+            return parsedFor
         
         elif self.crtToken.lexeme == "while":
-            return self.ParseWhile()
+            parsedWhile = self.ParseWhile()
+            self.NextToken()
+            return parsedWhile
+        
         
         elif self.crtToken.lexeme == "let":
             return self.ParseAssignment()
@@ -521,17 +526,17 @@ class Parser:
             if (self.crtToken.type == lex.TokenType.Parameter_L):
                 self.PreviousToken()
                 return self.ParseFunctionCall()
+            self.PreviousToken()
 
         #Assignment is made up of two main parts; the LHS (the variable) and RHS (the expression)
-        if (self.crtToken.type == lex.TokenType.Identifier):
-            #create AST node to store the identifier            
-            assignment_lhs = ast.ASTVariableNode(self.crtToken.lexeme)
-            self.NextToken()
-            # Check if statement is in the form x = expr (reassignment)
-            if (self.crtToken.type == lex.TokenType.AssignOp):
-                self.PreviousToken()
-                assignment_rhs = self.ParseReassignment()
-                return assignment_rhs
+        #create AST node to store the identifier            
+        assignment_lhs = ast.ASTVariableNode(self.crtToken.lexeme)
+        self.NextToken()
+        # Check if statement is in the form x = expr (reassignment)
+        if (self.crtToken.type == lex.TokenType.AssignOp):
+            self.PreviousToken()
+            assignment_rhs = self.ParseReassignment()
+            return assignment_rhs
 
         if (self.crtToken.type == lex.TokenType.Colon):
 
@@ -580,7 +585,7 @@ class Parser:
         
         print(self.crtToken.lexeme)
         raise SyntaxError("Invalid Statement")
-        
+        4
     def ParseBlock(self):
         #At the moment we only have assignment statements .... you'll need to add more for the assignment - branching depends on the token type
         block = ast.ASTBlockNode()
@@ -619,12 +624,20 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-
-                    fun test(x:int, y:bool) -> int {
-                        return 5;
+                    fun test(x:bool) -> int{
+                        if (x == true){
+                              return 5;
+                        }
                     }
+                    
 
-                    test(5, true);
+
+                    
+                    
+                    
+          
+
+
  
                     """)
     parser.Parse()

@@ -335,7 +335,13 @@ class Lexer():
 
 
 if __name__ == '__main__':
-    lex = Lexer("""test()
+    lex = Lexer(""" 
+                
+                    if (true) {
+                            return 5;
+                    }
+                    
+                    test(5, 2);
                     """)
     lex.printTokens()
 

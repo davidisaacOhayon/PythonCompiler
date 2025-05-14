@@ -19,9 +19,74 @@ class SemanticAnalyzer:
         self.index = 0
         self.root = root
 
-        
-    # Used for error checking function blocks only
+    # Used to analyze basic blocks, typically within if, for or while statements
     def analyze_block(self, node):
+        tempIndex = 0
+        innerSymbolTable = {}
+        hasReturn = False
+        while (tempIndex < len(node.block.stmts)):
+            currentNode = node.block.stmts[tempIndex]
+
+            match type(currentNode):
+                case ast.ASTAssignmentNode:
+                    if currentNode.id.lexeme in innerSymbolTable.keys():
+                        raise Exception(f"Variable {currentNode.id.lexeme} already Declared in function {node.name}")
+                    innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type }
+                    tempIndex += 1
+                    continue
+                
+                case ast.ASTDeclareNode:
+                    if currentNode.id in innerSymbolTable :
+                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type }
+                        tempIndex += 1
+                        continue
+                
+                case ast.ASTFunctionNode:
+                    raise Exception(f"Cannot define nested functions, in {node.name}.")
+                
+
+                case ast.ASTReturnNode:
+                    tempIndex += 1
+                    hasReturn = True
+                    continue
+
+                case ast.ASTFunctionCall:
+                    if currentNode.name in self.symbol_table.keys():
+                        temp_index += 1
+                        continue
+                    else:
+                        raise Exception(f"Function {currentNode.name} is not defined.")
+                    
+                case ast.ASTIfNode:
+                    # Checks block and also finds return
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+                    tempIndex += 1
+                    continue
+
+                case ast.ASTWhileNode:
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+                    tempIndex += 1
+                    continue
+
+                case ast.ASTForNode:
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+                    tempIndex += 1
+                    continue
+ 
+                case _:
+                    raise SyntaxError("Invalid Statement")
+                
+        return hasReturn
+        
+
+    # Used for error checking function blocks only
+    def analyze_func_block(self, node):
         tempIndex = 0
         innerSymbolTable = {}
         returnType = node.returnType
@@ -59,6 +124,31 @@ class SemanticAnalyzer:
                         continue
                     else:
                         raise Exception(f"Function {currentNode.name} is not defined.")
+                    
+                case ast.ASTIfNode:
+                    # Checks block and also finds return
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+
+                    tempIndex += 1
+                    continue
+
+                case ast.ASTWhileNode:
+                    # Checks block and also finds return
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+                    tempIndex += 1
+                    continue
+
+                case ast.ASTForNode:
+                    # Checks block and also finds return
+                    result = self.analyze_block(currentNode)
+                    if result:
+                        hasReturn = True
+                    tempIndex += 1
+                    continue
  
                 case _:
                     raise SyntaxError("Invalid Statement")
@@ -104,7 +194,7 @@ class SemanticAnalyzer:
                 case ast.ASTFunctionNode:
                     if currentNode.name not in self.symbol_table.keys():
                             self.symbol_table[currentNode.name] = {"func_name" : currentNode.name, "type" : "function", "returnType" : currentNode.returnType, "param_types" : [x.type for x in currentNode.params.params] }
-                            self.analyze_block(currentNode)
+                            self.analyze_func_block(currentNode)
                             self.index += 1
                             continue
                     raise Exception("Function already declared.")
@@ -131,14 +221,17 @@ class SemanticAnalyzer:
                         raise Exception(f"Function {currentNode.name} is not defined.")
 
                 case ast.ASTIfNode:
+                    self.analyze_block(currentNode)
                     self.index += 1
                     continue
 
                 case ast.ASTWhileNode:
+                    self.analyze_block(currentNode)
                     self.index += 1
                     continue
 
                 case ast.ASTForNode:
+                    self.analyze_block(currentNode)
                     self.index += 1
                     continue
  
@@ -159,19 +252,10 @@ class SemanticAnalyzer:
 
 if "__main__" == __name__:
 
-    input = '''
-                if (x == 2) {
-                    return 5;
-                }
-            '''
+ 
     
     parserObj = Parser.Parser("""
-
-                    fun test(x:int, y:bool) -> int {
-                        return 5;
-                    }
-
-                    test(5, true);
+                    let x:int = 5;
                               
 
                     """)
