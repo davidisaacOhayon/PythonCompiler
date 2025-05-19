@@ -14,7 +14,8 @@ class CodeGen(ASTVisitor):
     def __init__(self, program):
         # Instructions array holding final product
         self.instructions = ['.main']
-
+        # Scope for function tracking
+        self.currentScope = "main"
         # Symbol Table
         self.symbolTable = {}
         # Index 
@@ -67,13 +68,23 @@ class CodeGen(ASTVisitor):
         # Assuming expressions are N Op N (none nested expressions)
         expr = node.expr
         expr.accept(self)
-        # retrieve index
-        index = self.symbolTable[node.id.lexeme]['index']
-        # retrieve level
-        level = self.symbolTable[node.id.lexeme]['level']
-        self.emit(f'push {index}')
-        self.emit(f'push {level}')
-        self.emit('st')
+
+        if self.currentScope != "main":
+            # Check if variable is in function scope
+            if node.lexeme in self.symbolTable['functions'][self.currentScope]['symbolTable']:
+                # retrieve variable 
+                variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.lexeme]
+                # emit push
+                self.emit(f"push {variable["index"]}")
+                self.emit(f"push {variable["level"]}")
+        else:
+            # retrieve index
+            index = self.symbolTable[node.id.lexeme]['index']
+            # retrieve level
+            level = self.symbolTable[node.id.lexeme]['level']
+            self.emit(f'push {index}')
+            self.emit(f'push {level}')
+            self.emit('st')
 
     def visit_reassign_node(self, node):
         # evaluate expression
@@ -88,11 +99,24 @@ class CodeGen(ASTVisitor):
         self.emit('st')
     
     def visit_variable_node(self, node):
-        # Check if identifier is in symbol table    
-        if node.lexeme in self.symbolTable.keys():
-            self.emit(f'push [{self.symbolTable[node.lexeme]['index']}:{self.symbolTable[node.lexeme]['level']}]')
+        # func variable incase variable is found in function block
+
+        # If not, most definitely is in a function scope
+        if self.currentScope != "main":  
+            # Check if variable is in function scope
+            if node.lexeme in self.symbolTable['functions'][self.currentScope]['symbolTable']:
+                # retrieve variable 
+                variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.lexeme]
+                # emit push
+                self.emit(f"push {variable["index"]}:{variable["level"]}")
+
         else:
-            raise SyntaxError(f"Variable {node.lexeme} is not defined.")
+            # Check if identifier is in global symbol table  
+            if node.lexeme in self.symbolTable.keys():
+                self.emit(f'push [{self.symbolTable[node.lexeme]['index']}:{self.symbolTable[node.lexeme]['level']}]')
+            else:
+                raise SyntaxError(f"Variable {node.lexeme} is not defined.")
+
     def visit_return_node(self, node):
         node.expr.accept(self)
         self.emit('ret')
@@ -103,26 +127,19 @@ class CodeGen(ASTVisitor):
         self.emit("oframe")
         # Iterate through each statement in func block
         for st in node.stmts:
-            # If return node
-            if isinstance(st, ast.ASTReturnNode):
-                # Visit return expression
-                st.expr.accept(self)
-                # Set return to true
-                hasReturn = True
-                self.index += 1
-                continue
-    
             st.accept(self)
             self.index += 1
         self.emit("cframe")
-        if hasReturn:
-            self.emit("ret")
+        # if hasReturn:
+        #     self.emit("ret")
 
     def visit_func_node(self, node):
+        # Set current scope to function name
+        self.currentScope = node.name
         # Emit func name
         self.emit(f'.{node.name}')
         # Allocate space for parameters
-        self.emit(f'push {len(node.params.params) + self.countVariables(node.block)}')
+        self.emit(f'push {self.countVariables(node.block) + len(node.params.params)}')
 
         # Custom visitor function specifically for node block
         self.visit_func_block_node(node.block)
@@ -256,23 +273,43 @@ class CodeGen(ASTVisitor):
         self.emit('print')
 
     def visit_actualparams_node(self, node):
-        pass
+        for x in node.params:
+            x.accept(self)
     
+    def visit_func_call(self, node):
+        # Visit parameter inputs
+        node.params.accept(self)
+        # emit caller
+        self.emit(f'call .{node.name}')
+
     def visit_bool_node(self, node):
         if node.value == "true":
+
             self.emit("push 1")
+        
         elif node.value == "false":
+
             self.emit("push 0")
+
+    def visit_declare_node(self, node): 
+        node.var.accept(self)
+        
+
     def visit_block_node(self, node):
         ins_count = 0
         hasReturn = False
-        # Allocate space for block
-        count = self.countVariables(node)
-        self.emit(f"push {count}")
-
-        # Open scope
-        self.emit("oframe")
+        # function arrays, as Main block is to be processed first, then the rest.
+        functions = []
         for st in node.stmts:
+            print(st)
+            # If function
+            if isinstance(st, ast.ASTFunctionNode):
+                # append
+
+                functions.append(st)
+                # Go next statement
+                self.index += 1
+                continue
             # If return node
             if isinstance(st, ast.ASTReturnNode):
                 # Visit return expression
@@ -284,24 +321,26 @@ class CodeGen(ASTVisitor):
 
             st.accept(self)
             self.index += 1
-        self.emit("cframe")
+
+        # If functions are defined (this will ever only be the case within the main block)
+        if len(functions) > 0:
+                self.emit("halt")
+                for func in functions:
+                    func.accept(self)
+
         if hasReturn:
             self.emit("ret")
 
     def visit_program_node(self):
         # Loop through code
         block = self.root.block
+        # Allocate space for block
+        count = self.countVariables(block)
+        self.emit(f"push {count}")
+        # Open scope
+        self.emit("oframe")
         block.accept(self)
-
-        self.emit("halt")
-        
-
-        # while self.index < len(Block):
-        #     currentNode = Block[self.index] 
-
-        #     match type(currentNode):
-        #         case ast.ASTAssignmentNode:
-        #             self.visit_assignment_node(currentNode)
+        self.emit("cframe")
 
         for ins in self.instructions:
             print(ins)
@@ -312,12 +351,14 @@ class CodeGen(ASTVisitor):
 
 if __name__ == "__main__":
     parserObj = Parser.Parser("""
-                    let x:int = 259;
-                    fun test(a:int) -> bool{
-                        if ( x > 50) {
-                            x = 50;
-                        }
+                              
+                    fun tester(a:int) -> int{
+                        return 5;
                     }
+                              
+                    let b:int = 5;
+                    
+                    __print b;
                               
                     """)
     parserObj.Parse()

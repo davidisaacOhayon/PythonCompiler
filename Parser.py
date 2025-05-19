@@ -77,7 +77,7 @@ class Parser:
 
     def ParseTerm(self):
         tempLeft = tempRight = oper = None
-        while self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R:
+        while self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R and self.crtToken.type != lex.TokenType.Declaration_R:
             
             if self.crtToken.type in self.tokenTypes:
                 if tempLeft:
@@ -108,7 +108,9 @@ class Parser:
                     self.PreviousToken()
                     tempRight = self.ParseTerm()
 
-            if (self.crtToken.type == lex.TokenType.Parameter_R):
+            # Finish if we reach ), End, or }
+            if (self.crtToken.type == lex.TokenType.Parameter_R or self.crtToken.type == lex.TokenType.End or lex.TokenType.Declaration_R):
+                # Return
                 return ast.ASTTermNode(tempLeft, oper, tempRight)
             
             self.NextToken()
@@ -157,15 +159,21 @@ class Parser:
 
     def ParseExpression(self):
         # Expressions defined as Left <Relop> Right
-
+        # Left side
         left = None
-
+        # Check if token is of valid type
         if self.crtToken.type in self.tokenTypes:
             # Assign lhs
             left = self.ReturnASTNode()
-            
+            # next token
             self.NextToken()
 
+        # If Identifier ( , Then we are dealing with a function call
+        if self.crtToken.type == lex.TokenType.Parameter_L:
+            # Go previous token
+            self.PreviousToken()
+            # Parse function call 
+            return self.ParseFunctionCall()
  
         while self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R:
  
@@ -239,15 +247,20 @@ class Parser:
 
         temp_params = ast.ASTActualParamsNode()
 
+        # Iterate through each parameter
         while self.crtToken.type != lex.TokenType.Parameter_R:
-            print(self.crtToken.lexeme)
+            # Check if separator
             if self.crtToken.type == lex.TokenType.Comma:
+                # Go next token
                 self.NextToken()
                 continue
             else:
+                # Parse parameter
                 temp_params.add_params(self.ReturnASTNode())
+            # Go next token
             self.NextToken()
-
+        # Skip last parameter_R
+        self.NextToken()
         return temp_params 
 
     def ParseParameters(self):
@@ -301,7 +314,7 @@ class Parser:
                     print(self.crtToken.lexeme)
                     tempFunc.block  = self.ParseBlock()
                 
-            
+        self.NextToken()
         return tempFunc
    
     def ParseFunctionCall(self):
@@ -637,6 +650,8 @@ class Parser:
             if (self.crtToken.type == lex.TokenType.Declaration_R):
                 self.NextToken()
                 return block
+            
+            
  
 
         return block
@@ -657,9 +672,15 @@ if __name__ == '__main__':
     with open('./something.txt', 'r') as file:
      inputCode = file.read()
 
-    parser = Parser("""
-                    let x:int = 259;
-                    __print x;
+    parser = Parser("""                              
+                    fun tester(x:int) -> int {
+                        if ( 5 * x > 5) {
+                            return 5;
+                    
+                        }          
+                    }
+                            
+                    let a:int = tester(5);
  
                     """)
     parser.Parse()

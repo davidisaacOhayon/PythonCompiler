@@ -16,7 +16,7 @@ types = {lex.TokenType.Integer : lex.TokenType.IntegerType,
 class SemanticAnalyzer:
     def __init__(self, root):
         # Symbol table
-        self.symbol_table = {}
+        self.symbol_table = {"functions" : {}}
         # Current index
         self.index = 0
         # Current frame level 
@@ -149,14 +149,18 @@ class SemanticAnalyzer:
     # Used for error checking function blocks only
 
     def analyze_formal_params(self, node):
-        # Iterate through each formal parameter
+        tempSymbolTable = {}
+        tempIndex = 0
+         # Iterate through each formal parameter
         for x in node.params:
-            self.symbol_table[x.var] = {"type" : x.type, "index": self.index, "level": self.level}
-            self.index += 1
+            tempSymbolTable[x.var] = {"type" : x.type, "index": tempIndex, "level": self.level}
+            tempIndex += 1
+
+        return tempSymbolTable, tempIndex
             
-    def analyze_func_block(self, node):
-        # Increment level
-        self.level += 1
+    def analyze_func_block(self, node, index=0):
+        # The index variable is to keep track of positions for the inner symbol table
+
         # Temporary index within function
         tempIndex = 0
         # Inner symbol for checking
@@ -172,23 +176,31 @@ class SemanticAnalyzer:
 
             match type(currentNode):
                 case ast.ASTAssignmentNode:
+                    # Check if variable is already declared
                     if currentNode.id.lexeme in innerSymbolTable.keys():
+                        # Raise error
                         raise Exception(f"Variable {currentNode.id.lexeme} already Declared in function {node.name}")
-                    innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index":  self.index + tempIndex, "level" : self.level }
+                    # Assign variable to inner symbol table
+                    innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index": tempIndex + index, "level" : self.level }
+                    
                     tempIndex += 1
+
                     varCount += 1
  
                     continue
                 case ast.ASTReAssignNode:
+                    # Check if variable is declared
                     if currentNode.id.lexeme in self.symbol_table.keys() or currentNode.id.lexeme in innerSymbolTable.keys():
                         tempIndex += 1
                         continue
                     else:
+                        # raise error
                         raise Exception(f"Variable {currentNode.id.lexeme} isn't defined.")
                 
                 case ast.ASTDeclareNode:
-                    if currentNode.id in innerSymbolTable :
-                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type, "index":  self.index + tempIndex, "level" : self.level }
+                    # Check if variable is already declared
+                    if currentNode.id in innerSymbolTable:
+                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type, "index": tempIndex + index, "level" : self.level }
                         tempIndex += 1
                         varCount +=1 
                         continue
@@ -216,7 +228,7 @@ class SemanticAnalyzer:
                     
                 case ast.ASTIfNode:
                     # Checks block and also finds return
-             
+                
                     result = self.analyze_block(currentNode)
                
                     if result:
@@ -242,7 +254,7 @@ class SemanticAnalyzer:
                     if currentNode.init.id.lexeme in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
                     # add to symbol table
-                    self.symbol_table[currentNode.init.id]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  self.index + tempIndex, "level" : self.level}
+                    self.symbol_table[currentNode.init.id]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  tempIndex + index, "level" : self.level}
                     varCount +=1
                     tempIndex += 1
                     # Get for loop condition
@@ -258,7 +270,7 @@ class SemanticAnalyzer:
                     raise SyntaxError("Invalid Statement")
  
         self.symbol_table.update(innerSymbolTable)
-        self.level -= 1
+ 
         if not hasReturn:
             raise Exception(f"Funciton {node.name} returns no value.")
 
@@ -300,11 +312,13 @@ class SemanticAnalyzer:
                 
                 case ast.ASTFunctionNode:
                     if currentNode.name not in self.symbol_table.keys():
-                            # self.symbol_table[currentNode.name] = {"func_name" : currentNode.name, "type" : "function", "returnType" : currentNode.returnType, "param_types" : [x.type for x in currentNode.params.params if x != None], "index": self.index, "level" : self.level }
-                            self.analyze_formal_params(currentNode.params)
+                            # Define function onto the symbol table
+                            self.symbol_table["functions"][currentNode.name] = {"func_name" : currentNode.name, "symbolTable" : {}}
+                            # process formal parameters, and check function frame index
+                            self.symbol_table["functions"][currentNode.name]["symbolTable"], funcIndex = self.analyze_formal_params(currentNode.params)
                             self.index += 1
                             self.current_ret_type = currentNode.returnType
-                            self.analyze_func_block(currentNode)
+                            self.analyze_func_block(currentNode, funcIndex)
                             self.current_ret_type = None
 
                             continue
@@ -358,7 +372,7 @@ class SemanticAnalyzer:
                     if currentNode.init.id.lexeme in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
                     # add to symbol table
-                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" : self.index, "level" : self.level}
+                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" : self.index + index, "level" : self.level}
                     varCount +=1
                     self.index += 1
 
@@ -388,10 +402,12 @@ if "__main__" == __name__:
  
     
     parserObj = Parser.Parser("""
-                    fun test(x:int, y:bool) -> int {
-                        a:int = 5;
-                        return a;       
+                              
+                    fun tester(x:int) -> int {
+                        return 5 * x;          
                     }
+                            
+                    let a:int = tester(5);
 
                     """)
     parserObj.Parse()
