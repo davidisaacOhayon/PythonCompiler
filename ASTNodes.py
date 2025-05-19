@@ -247,7 +247,7 @@ class ASTAssignmentNode(ASTNode):
 class ASTReAssignNode(ASTNode):
     def __init__(self, id, expr):
         self.name = "ASTReAssignNode"
-        self.id = id
+        self.id = id    
         self.expr = expr
     
     def accept(self, visitor):
@@ -445,11 +445,17 @@ class PrintNodesVisitor(ASTVisitor):
         self.node_count += 1
         print('\t' * self.tab_count, "Float value::", float_node.value)
 
+    def visit_bool_node(self, node):
+        self.node_count += 1
+        print('\t' * self.tab_count, "Boolean value::", node.value)
+
     def visit_func_node(self, func_node):
         self.node_count += 1
         print('\t' * self.tab_count, "Function name::", func_node.name)
         print('\t' * self.tab_count, "Parameters:: ")
-        func_node.params.accept(self)
+        if ( func_node.params != None):
+            func_node.params.accept(self)
+        
         print('\t' * self.tab_count, "Return Type:: ", func_node.returnType)
         self.visit_block_node(func_node.block)
 
@@ -463,9 +469,7 @@ class PrintNodesVisitor(ASTVisitor):
         func_call.params.accept(self)
         self.dec_tab_count()
    
-    def visit_bool_node(self, node):
-        self.node_count += 1
-        print('\t' * self.tab_count, "Boolean value::", node.value)
+
         
     def visit_assignment_node(self, ass_node):
         self.node_count += 1
@@ -557,21 +561,6 @@ class PrintNodesVisitor(ASTVisitor):
         self.node_count += 1
         print('\t' * self.tab_count, "Colour value::", node.colour)
 
-    def visit_term_node(self, node):
-        self.node_count += 1
-        # If not a singular factor
-        # if node.mulop and node.left and node.right:
-        print('\t' * self.tab_count, "Multiplicative Operator => ", node.mulop)
-        self.inc_tab_count()
-        print('\t' * self.tab_count, 'left')
-        node.left.accept(self)
-        print('\t' * self.tab_count, 'right')
-        node.right.accept(self)
-        self.dec_tab_count()
-        # else:
-        #     self.inc_tab_count()
-        #     node.left.accept(self)
-        #     self.dec_tab_count()
 
     def visit_return_node(self, node):
         self.node_count += 1
@@ -641,6 +630,22 @@ class PrintNodesVisitor(ASTVisitor):
             node.left.accept(self)
             self.dec_tab_count()
 
+    def visit_term_node(self, node):
+        self.node_count += 1
+        # If not a singular factor
+        if node and node.left and node.right:
+            print('\t' * self.tab_count, "Multiplicative Operator => ", node.mulop)
+            self.inc_tab_count()
+            print('\t' * self.tab_count, 'left')
+            node.left.accept(self)
+            print('\t' * self.tab_count, 'right')
+            node.right.accept(self)
+            self.dec_tab_count()
+        else:
+            self.inc_tab_count()
+            node.left.accept(self)
+            self.dec_tab_count()
+
     def visit_exp_node(self, node):
         self.node_count += 1
         print('\t' * self.tab_count, "Expression Node =>")
@@ -667,6 +672,8 @@ class PrintNodesVisitor(ASTVisitor):
 
     def visit_formalparams_node(self, node):
         self.node_count += 1
+        if None in node.params:
+            return
         self.inc_tab_count()
         print('\t' * self.tab_count, "Formal Parameters =>")
         self.inc_tab_count()

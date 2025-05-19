@@ -48,6 +48,7 @@ class Parser:
         self.index -= 1   #Grab the Previous token
         if (self.index < len(self.tokens) and self.index > -1):
             self.crtToken = self.tokens[self.index]
+            print(f'changed back to {self.crtToken.lexeme}')
         else:
             self.crtToken = lex.Token(lex.TokenType.End, "END")
 
@@ -76,8 +77,8 @@ class Parser:
 
     def ParseTerm(self):
         tempLeft = tempRight = oper = None
-        while self.crtToken.type != lex.TokenType.End:
-
+        while self.crtToken.type != lex.TokenType.End and self.crtToken.type != lex.TokenType.Parameter_R:
+            
             if self.crtToken.type in self.tokenTypes:
                 if tempLeft:
                     tempRight = self.ReturnASTNode()
@@ -98,14 +99,21 @@ class Parser:
 
             if (self.crtToken.type == lex.TokenType.Mulop):
                 if oper is None:
+
                     oper = self.crtToken.lexeme
                     self.NextToken()
+                    continue
                 else:
+
                     self.PreviousToken()
                     tempRight = self.ParseTerm()
 
+            if (self.crtToken.type == lex.TokenType.Parameter_R):
+                return ast.ASTTermNode(tempLeft, oper, tempRight)
+            
+            self.NextToken()
+
         
-        print(f'Creating Term Node with {tempLeft}, {oper} and {tempRight}')
         return ast.ASTTermNode(tempLeft, oper, tempRight)
 
     def ParseSimpleExpression(self):
@@ -359,7 +367,6 @@ class Parser:
         return ast.ASTWriteBoxNode(args[1], args[2], args[3], args[4], arg5)
         
     def ParseWrite(self):
-        print(self.crtToken.lexeme)
         args = {}
         arg = 0
         arg4 = None
@@ -403,6 +410,34 @@ class Parser:
 
         return ast.ASTWriteNode(args[1], args[2], arg4)
 
+    def ParsePrint(self):
+        # Confirm lexeme is print 
+        if self.crtToken.type == lex.TokenType.Print:
+            # Next token
+            self.NextToken()
+
+            # if lexeme type is identifier
+            if self.crtToken.type == lex.TokenType.Identifier:
+
+                tempIdent = self.ReturnASTNode()
+
+                # check if identifier is a function call
+                self.NextToken()
+
+                if self.crtToken.type == lex.TokenType.Parameter_L:
+                    # go back to identifier
+                    self.PreviousToken()
+                    # parse function call
+                    tempCall = self.ParseFunctionCall()
+                    # return print node with function call
+                    return ast.ASTPrintNode(tempCall)
+            
+
+                return ast.ASTPrintNode(tempIdent)
+                
+            tempExpr = self.ParseExpression()
+            return ast.ASTPrintNode(tempExpr)
+
     def ParseIf(self):
         
         block = conds = nxtBlock = None
@@ -414,11 +449,8 @@ class Parser:
         
         print(self.crtToken.lexeme)
         if self.crtToken.type == lex.TokenType.Parameter_R:
-            print('changed 1 : ', self.crtToken.lexeme)
             self.NextToken()
-            print('changed 2 : ', self.crtToken.lexeme)
             self.NextToken()
-            print('changed 3 : ', self.crtToken.lexeme)
             block = self.ParseBlock()
             
 
@@ -582,6 +614,8 @@ class Parser:
         
         elif self.crtToken.type == lex.TokenType.Write:
             return self.ParseWrite()
+        elif self.crtToken.type == lex.TokenType.Print:
+            return self.ParsePrint()
         
         print(self.crtToken.lexeme)
         raise SyntaxError("Invalid Statement")
@@ -624,20 +658,8 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""
-                    fun test(x:bool) -> int{
-                        if (x == true){
-                              return 5;
-                        }
-                    }
-                    
-
-
-                    
-                    
-                    
-          
-
-
+                    let x:int = 259;
+                    __print x;
  
                     """)
     parser.Parse()

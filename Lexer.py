@@ -337,11 +337,11 @@ class Lexer():
 if __name__ == '__main__':
     lex = Lexer(""" 
                 
-                    if (true) {
-                            return 5;
-                    }
+                fun test() -> bool {
+                    return true;
+                }
                     
-                    test(5, 2);
+                test(31);
                     """)
     lex.printTokens()
 
