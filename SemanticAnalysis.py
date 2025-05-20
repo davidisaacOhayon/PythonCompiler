@@ -17,8 +17,10 @@ class SemanticAnalyzer:
     def __init__(self, root):
         # Symbol table
         self.symbol_table = {"functions" : {}}
-        # Current index
+        # Index ( used for symbol table allocation)
         self.index = 0
+        # Position index
+        self.pos = 0
         # Current frame level 
         self.level = 0
         # Root node
@@ -27,11 +29,14 @@ class SemanticAnalyzer:
         self.current_ret_type = None
 
     # Used to analyze basic blocks, typically within if, for or while statements
-    def analyze_block(self, node):
+    # Index variable is also used incases of statements within functions
+    def analyze_block(self, node, index=0):
         # Increment level
         self.level += 1
-        # Indexing for block statements
-        tempIndex = 0
+        # temporary index
+        tempIndex = 0 + index
+        # position indexfor block statements
+        tempPos = 0
         # Symbol table for checks
         innerSymbolTable = {}
         # check if block has return
@@ -39,31 +44,31 @@ class SemanticAnalyzer:
         # Variable counter
         varCount = 0
 
-        while (tempIndex < len(node.block.stmts)):
+        while (tempPos < len(node.block.stmts)):
             # Get current node statement
-            currentNode = node.block.stmts[tempIndex]
+            currentNode = node.block.stmts[tempPos]
 
             match type(currentNode):
 
                 case ast.ASTAssignmentNode:
                     if currentNode.id.lexeme in innerSymbolTable.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already Declared in function {node.name}")
-                    innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index": self.index + tempIndex, "level" : self.level }
-                    tempIndex += 1
+                    innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index": tempIndex, "level" : self.level }
+                    tempPos += 1
                     varCount += 1
                     continue
 
                 case ast.ASTReAssignNode:
                     if currentNode.id.lexeme in self.symbol_table.keys() or currentNode.id.lexeme in innerSymbolTable.keys():
-                        tempIndex += 1
+                        tempPos += 1
                         continue
                     else:
                         raise Exception(f"Variable {currentNode.id.lexeme} isn't defined.")
                 
                 case ast.ASTDeclareNode:
                     if currentNode.id in innerSymbolTable :
-                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type,  "index":  self.index + tempIndex , "level" : self.level }
-                        tempIndex += 1
+                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type,  "index":  tempIndex, "level" : self.level }
+                        tempPos += 1
                         varCount += 1
                         continue
                 
@@ -79,13 +84,13 @@ class SemanticAnalyzer:
                     elif self.current_ret_type != None:
                         if types[currentNode.type] != self.current_ret_type:
                             raise SyntaxError("Return Type does not match function return type")
-                    tempIndex += 1
+                    tempPos += 1
                     hasReturn = True
                     continue
 
                 case ast.ASTFunctionCall:
                     if currentNode.name in self.symbol_table.keys():
-                        tempIndex += 1
+                        tempPos += 1
                         continue
                     else:
                         raise Exception(f"Function {currentNode.name} is not defined.")
@@ -93,9 +98,8 @@ class SemanticAnalyzer:
                 case ast.ASTIfNode:
                     # Checks block and also finds return
 
-                    
-                    result = self.analyze_block(currentNode)
-                    tempIndex += 1
+                    result = self.analyze_block(currentNode, tempIndex)
+                    tempPos += 1
                     varCount += 1
                     
                     if result:
@@ -106,8 +110,8 @@ class SemanticAnalyzer:
                 case ast.ASTWhileNode:
                     
                      
-                    result = self.analyze_block(currentNode)
-                    tempIndex += 1
+                    result = self.analyze_block(currentNode, tempIndex)
+                    tempPos += 1
                     varCount += 1
                     if result:
                         hasReturn = True
@@ -115,7 +119,7 @@ class SemanticAnalyzer:
                     continue
 
                 case ast.ASTPrintNode:
-                    self.index += 1
+                    self.pos += 1
                     continue
 
                 case ast.ASTForNode:
@@ -125,12 +129,12 @@ class SemanticAnalyzer:
                     if currentNode.init.id in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
                     # add to symbol table
-                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  self.index + tempIndex, "level" : self.level}
+                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  tempIndex, "level" : self.level}
                     varCount +=1
-                    tempIndex += 1
+                    tempPos += 1
                 
                      
-                    result = self.analyze_block(currentNode)
+                    result = self.analyze_block(currentNode, tempIndex)
                     
                     varCount += 1
                     if result:
@@ -149,20 +153,29 @@ class SemanticAnalyzer:
     # Used for error checking function blocks only
 
     def analyze_formal_params(self, node):
+        # temporary symbol table
         tempSymbolTable = {}
-        tempIndex = 0
-         # Iterate through each formal parameter
-        for x in node.params:
-            tempSymbolTable[x.var] = {"type" : x.type, "index": tempIndex, "level": self.level}
-            tempIndex += 1
+        # temp position for tracking function location
+        tempPos = 0
+        # Check if function node has params 
+        if len(node.params) > 0:
+            # Iterate through each formal parameter
+            for x in node.params:
+                if x == None:
+                    continue
+                # add to symbol table
+                tempSymbolTable[x.var] = {"type" : x.type, "index": tempPos, "level": self.level}
+                # increment temp position
+                tempPos += 1
 
-        return tempSymbolTable, tempIndex
+        # return symbol table and position to function
+        return tempSymbolTable, tempPos
             
     def analyze_func_block(self, node, index=0):
         # The index variable is to keep track of positions for the inner symbol table
-
-        # Temporary index within function
-        tempIndex = 0
+        tempIndex = 0 
+        # Temporary position within function
+        tempPos = 0
         # Inner symbol for checking
         innerSymbolTable = {}
         # Return type
@@ -171,8 +184,8 @@ class SemanticAnalyzer:
         hasReturn = False
         # Variable counter
         varCount = 0
-        while (tempIndex < len(node.block.stmts)):
-            currentNode = node.block.stmts[tempIndex]
+        while (tempPos < len(node.block.stmts)):
+            currentNode = node.block.stmts[tempPos]
 
             match type(currentNode):
                 case ast.ASTAssignmentNode:
@@ -182,26 +195,31 @@ class SemanticAnalyzer:
                         raise Exception(f"Variable {currentNode.id.lexeme} already Declared in function {node.name}")
                     # Assign variable to inner symbol table
                     innerSymbolTable[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index": tempIndex + index, "level" : self.level }
-                    
+                    # Increment temp index
                     tempIndex += 1
-
+                    # Increment temp position
+                    tempPos += 1
+                    # increase var count
                     varCount += 1
  
                     continue
                 case ast.ASTReAssignNode:
                     # Check if variable is declared
                     if currentNode.id.lexeme in self.symbol_table.keys() or currentNode.id.lexeme in innerSymbolTable.keys():
-                        tempIndex += 1
+                        # Increment temp positon
+                        tempPos += 1
                         continue
                     else:
-                        # raise error
+                        # Raise error
                         raise Exception(f"Variable {currentNode.id.lexeme} isn't defined.")
                 
                 case ast.ASTDeclareNode:
                     # Check if variable is already declared
                     if currentNode.id in innerSymbolTable:
-                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type, "index": tempIndex + index, "level" : self.level }
-                        tempIndex += 1
+                        innerSymbolTable[currentNode.var] = {"type" : "declare", "varType" : currentNode.type, "index": tempPos + index, "level" : self.level }
+                        # increment temp position
+                        tempPos += 1
+                        # increment var count
                         varCount +=1 
                         continue
                 
@@ -214,16 +232,21 @@ class SemanticAnalyzer:
                     if currentNode.type == lex.TokenType.Identifier:
                         # Identifier has to be evaluated later on
                         pass
+                    # If return type does not match function return type
                     elif types[currentNode.type] != returnType:
+                        # raise error
                         raise SyntaxError(f"return type in {node.name} does not match defined return type of function. Expected {returnType}, got {currentNode.type}")
                     hasReturn = True
-                    tempIndex += 1
+                    tempPos += 1
 
                 case ast.ASTFunctionCall:
+                    # check if function is declared
                     if currentNode.name in self.symbol_table.keys():
-                        tempIndex += 1
+                        # increment position
+                        tempPos += 1
                         continue
                     else:
+                        # raise error
                         raise Exception(f"Function {currentNode.name} is not defined.")
                     
                 case ast.ASTIfNode:
@@ -234,7 +257,7 @@ class SemanticAnalyzer:
                     if result:
                         hasReturn = True
 
-                    tempIndex += 1
+                    tempPos += 1
                     continue
 
                 case ast.ASTWhileNode:
@@ -244,26 +267,26 @@ class SemanticAnalyzer:
                
                     if result:
                         hasReturn = True
-                    tempIndex += 1
+                    tempPos += 1
                     continue
 
                 case ast.ASTForNode:
                     # Checks block and also finds return
-                    tempIndex += 1
+                    tempPos += 1
                     # Get for loop init variable
                     if currentNode.init.id.lexeme in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
                     # add to symbol table
-                    self.symbol_table[currentNode.init.id]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  tempIndex + index, "level" : self.level}
+                    self.symbol_table[currentNode.init.id]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" :  tempPos + index, "level" : self.level}
                     varCount +=1
-                    tempIndex += 1
+                    tempPos += 1
                     # Get for loop condition
               
                     result = self.analyze_block(currentNode)
                      
                     if result:
                         hasReturn = True
-                    tempIndex += 1
+                    tempPos += 1
                     continue
  
                 case _:
@@ -276,17 +299,15 @@ class SemanticAnalyzer:
 
 
     # def analyze_params(self, params):
-
-
     def analyze(self):
         
         # Get root block
         Block = self.root.block
         varCount = 0
         # Iterate throughout block statements   
-        while (self.index < len(Block.stmts)):
+        while (self.pos < len(Block.stmts)):
             # Get current node
-            currentNode = Block.stmts[self.index]
+            currentNode = Block.stmts[self.pos]
 
             # Match case of nodes
             match type(currentNode):
@@ -294,20 +315,23 @@ class SemanticAnalyzer:
                 case ast.ASTAssignmentNode:
                     if currentNode.id.lexeme in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
+                    # Assign to symbol table 
                     self.symbol_table[currentNode.id.lexeme]  = { "type" : "assign", "varType" : currentNode.expr.type, "index" : self.index, "level" : self.level}
-                    self.index += 1
+                    # Increment symbol table index
+                    self.index +=1
+                    # Increment statement block position
+                    self.pos += 1
                     continue
 
                 case ast.ASTReAssignNode:
                     if currentNode.id.lexeme in self.symbol_table.keys():
-                        self.index += 1
                         continue
                     else:
                         raise Exception(f"Variable {currentNode.id.lexeme} isn't defined.")
                 # Declare node ()
                 case ast.ASTDeclareNode:
                     self.symbol_table[currentNode.var] = {"type" : "declare", "varType" : currentNode.type, "index": self.index, "level" : self.level  }
-                    self.index += 1
+                    self.pos += 1
                     continue
                 
                 case ast.ASTFunctionNode:
@@ -316,16 +340,20 @@ class SemanticAnalyzer:
                             self.symbol_table["functions"][currentNode.name] = {"func_name" : currentNode.name, "symbolTable" : {}}
                             # process formal parameters, and check function frame index
                             self.symbol_table["functions"][currentNode.name]["symbolTable"], funcIndex = self.analyze_formal_params(currentNode.params)
-                            self.index += 1
+                            self.pos += 1
+                            # Get function return type
                             self.current_ret_type = currentNode.returnType
+                            # analyze function block
                             self.analyze_func_block(currentNode, funcIndex)
+                            # set current return type to none
                             self.current_ret_type = None
 
                             continue
+                    
                     raise Exception("Function already declared.")
 
                 case ast.ASTPrintNode:
-                    self.index += 1
+                    self.pos += 1
                     continue
 
                 case ast.ASTFunctionCall:
@@ -342,7 +370,7 @@ class SemanticAnalyzer:
                             # Parameter locations should match
                             if types[param.type] != function["param_types"][i]:
                                 raise SyntaxError(f"Parameter types of call {currentNode.name} do not match function definition.")
-                        self.index += 1
+                        self.pos += 1
 
                         continue
                     else:
@@ -352,19 +380,19 @@ class SemanticAnalyzer:
                 case ast.ASTIfNode:
                 
                     self.analyze_block(currentNode)
-                    self.index += 1
+                    self.pos += 1
                   
                     continue
 
                 case ast.ASTWhileNode:
                     
                     self.analyze_block(currentNode)
-                    self.index += 1
+                    self.pos += 1
                    
                     continue
 
                 case ast.ASTPrintNode:
-                    self.index += 1
+                    self.pos += 1
                     continue
 
                 case ast.ASTForNode:
@@ -372,9 +400,9 @@ class SemanticAnalyzer:
                     if currentNode.init.id.lexeme in self.symbol_table.keys():
                         raise Exception(f"Variable {currentNode.id.lexeme} already declared. ")
                     # add to symbol table
-                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" : self.index + index, "level" : self.level}
+                    self.symbol_table[currentNode.init.id.lexeme]  = { "type" : "assign", "varType" : currentNode.init.expr.type, "index" : self.index, "level" : self.level}
                     varCount +=1
-                    self.index += 1
+                    self.pos += 1
 
                     self.analyze_block(currentNode)
 
@@ -402,12 +430,9 @@ if "__main__" == __name__:
  
     
     parserObj = Parser.Parser("""
+                              let x:int = 5;
                               
-                    fun tester(x:int) -> int {
-                        return 5 * x;          
-                    }
-                            
-                    let a:int = tester(5);
+        
 
                     """)
     parserObj.Parse()

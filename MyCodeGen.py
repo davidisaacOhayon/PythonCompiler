@@ -71,7 +71,7 @@ class CodeGen(ASTVisitor):
 
         if self.currentScope != "main":
             # Check if variable is in function scope
-            if node.lexeme in self.symbolTable['functions'][self.currentScope]['symbolTable']:
+            if node.id.lexeme in self.symbolTable['functions'][self.currentScope]['symbolTable']:
                 # retrieve variable 
                 variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.lexeme]
                 # emit push
@@ -108,7 +108,7 @@ class CodeGen(ASTVisitor):
                 # retrieve variable 
                 variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.lexeme]
                 # emit push
-                self.emit(f"push {variable["index"]}:{variable["level"]}")
+                self.emit(f"push [{variable["index"]}:{variable["level"]}]")
 
         else:
             # Check if identifier is in global symbol table  
@@ -124,14 +124,14 @@ class CodeGen(ASTVisitor):
     def visit_func_block_node(self, node):
         # Open scope
         hasReturn = False
-        self.emit("oframe")
+        # Allocate memory spaces for locals
+        self.emit("alloc")
+        
         # Iterate through each statement in func block
         for st in node.stmts:
             st.accept(self)
             self.index += 1
-        self.emit("cframe")
-        # if hasReturn:
-        #     self.emit("ret")
+
 
     def visit_func_node(self, node):
         # Set current scope to function name
@@ -279,8 +279,21 @@ class CodeGen(ASTVisitor):
     def visit_func_call(self, node):
         # Visit parameter inputs
         node.params.accept(self)
-        # emit caller
-        self.emit(f'call .{node.name}')
+        # Check node symbol table
+
+
+        funcSymbolTable = self.symbolTable['functions'][node.name]['symbolTable']
+        if len(funcSymbolTable) > 0:
+            self.emit(f'push {len(funcSymbolTable)}')
+
+
+
+
+
+        # Push function into stack
+        self.emit(f'push .{node.name}')
+        # call function
+        self.emit(f'call ')
 
     def visit_bool_node(self, node):
         if node.value == "true":
@@ -352,14 +365,17 @@ class CodeGen(ASTVisitor):
 if __name__ == "__main__":
     parserObj = Parser.Parser("""
                               
-                    fun tester(a:int) -> int{
-                        return 5;
+                    let c:int = test(2, 312);
+
+                    fun test(a:int, b:int) -> int{
+                        if ( b > a ){
+                              return b;
+                        }
+
+                        return a;
                     }
                               
-                    let b:int = 5;
-                    
-                    __print b;
-                              
+
                     """)
     parserObj.Parse()
 
