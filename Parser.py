@@ -314,7 +314,7 @@ class Parser:
                     print(self.crtToken.lexeme)
                     tempFunc.block  = self.ParseBlock()
                 
-        self.NextToken()
+        #self.NextToken()
         return tempFunc
    
     def ParseFunctionCall(self):
@@ -353,7 +353,7 @@ class Parser:
 
             elif self.crtToken.type == lex.TokenType.Identifier:
                 arg += 1
-                args[arg] = self.crtToken.lexeme
+                args[arg] = self.ReturnASTNode()
                 self.NextToken()
  
                 continue
@@ -533,7 +533,6 @@ class Parser:
         
         elif self.crtToken.lexeme == "for":
             parsedFor = self.ParseFor()
-            self.NextToken()
             return parsedFor
         
         elif self.crtToken.lexeme == "while":
@@ -673,14 +672,15 @@ if __name__ == '__main__':
      inputCode = file.read()
 
     parser = Parser("""                              
-                    fun tester(x:int) -> int {
-                        if ( 5 * x > 5) {
-                            return 5;
                     
-                        }          
+                    for (let x:int = 0; x < 36 ; x = x + 1){
+                        __print x;
+                        for (let y:int = 0; y < 50; y = y + 1){
+                            __print y;
+                        }
+                              
+                        __print 51;
                     }
-                            
-                    let a:int = tester(5);
  
                     """)
     parser.Parse()

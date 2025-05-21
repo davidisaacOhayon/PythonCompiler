@@ -336,12 +336,18 @@ class Lexer():
 
 if __name__ == '__main__':
     lex = Lexer(""" 
-                
-                fun test() -> bool {
-                    return true;
-                }
-                    
-                test(31);
+                    let c:int = test(2, 312);
+                              
+                    fun test(a:int, b:int) -> int{
+                        let x : int = 5;  
+                        if ( b > a ){
+                              return b;
+                        }
+
+                        return a;
+                    }
+                    __print c;  
+ 
                     """)
     lex.printTokens()
 

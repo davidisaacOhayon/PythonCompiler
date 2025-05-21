@@ -157,7 +157,9 @@ class ASTDelayNode(ASTNode):
 class ASTWriteBoxNode(ASTNode):
     def __init__(self, u, v, x, y, color):
           self.name = "ASTWriteBoxNode"
+        #  u : width, v :height
           self.u, self.v = u, v
+        #   x & y position
           self.x, self.y = x, y
           self.color = color
 
