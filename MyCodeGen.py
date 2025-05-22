@@ -21,7 +21,7 @@ class CodeGen(ASTVisitor):
         # Index 
         self.index = 0
         # Level
-        self.level = -1
+        self.level = 0
         # Code
         self.root = program
 
@@ -53,6 +53,7 @@ class CodeGen(ASTVisitor):
     def emit(self, ins):
         self.instructions.append(ins)
         self.index += 1
+      
 
 
     def visit_integer_node(self, node):
@@ -64,6 +65,7 @@ class CodeGen(ASTVisitor):
     # def visit_bool_node(self, node):
 
     def visit_assignment_node(self, node):
+        
         # Assuming expressions are N Op N (none nested expressions)
         expr = node.expr
         expr.accept(self)
@@ -75,7 +77,8 @@ class CodeGen(ASTVisitor):
                 variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.id.lexeme]
                 # emit push
                 self.emit(f"push {variable["index"]}")
-                self.emit(f"push {variable["level"]}")
+             
+                self.emit(f"push {int(variable["level"] + self.level)}")
                 self.emit('st')
             # Check if variable is in global scope
             elif node.id.lexeme in self.symbolTable.keys():
@@ -83,7 +86,7 @@ class CodeGen(ASTVisitor):
                 variable = self.symbolTable[node.id.lexeme]
                 # emit push
                 self.emit(f"push {variable["index"]}")
-                self.emit(f"push {variable["level"]}")
+                self.emit(f"push {int(variable["level"] + self.level)}")
                 self.emit('st')
 
         else:
@@ -92,8 +95,11 @@ class CodeGen(ASTVisitor):
             # retrieve level
             level = self.symbolTable[node.id.lexeme]['level']
             self.emit(f'push {index}')
-            self.emit(f'push {level}')
+            print(self.level)
+            self.emit(f'push {int(level + self.level)}')
             self.emit('st')
+
+       
 
     def visit_reassign_node(self, node):
         # evaluate expression
@@ -107,7 +113,7 @@ class CodeGen(ASTVisitor):
 
                 # emit push
                 self.emit(f"push {variable["index"]}")
-                self.emit(f"push {variable["level"]}")
+                self.emit(f"push {variable["level"] + self.level}")
                 self.emit('st')
         else:
             # retrieve index
@@ -115,7 +121,7 @@ class CodeGen(ASTVisitor):
             # retrieve level
             level = self.symbolTable[node.id.lexeme]['level']
             self.emit(f'push {index}')
-            self.emit(f'push {level}')
+            self.emit(f'push {level + self.level}')
             self.emit('st')
     
     def visit_variable_node(self, node):
@@ -127,6 +133,8 @@ class CodeGen(ASTVisitor):
             if node.lexeme in self.symbolTable['functions'][self.currentScope]['symbolTable']:
                 # retrieve variable 
                 variable = self.symbolTable["functions"][self.currentScope]["symbolTable"][node.lexeme]
+                # update index
+                variable["index"] = self.index
                 # emit push
                 # self.emit(f"push [{variable["index"]}:{variable["level"]}]")
                 self.emit(f"push [{variable["index"]}:{variable['level'] + self.level}]")
@@ -134,6 +142,8 @@ class CodeGen(ASTVisitor):
             elif node.lexeme in self.symbolTable.keys():
                 # retrieve variable 
                 variable = self.symbolTable[node.lexeme]
+                # update indexex
+                variable["index"] = self.index
                 # emit push
                 # self.emit(f"push [{variable["index"]}:{variable["level"]}]")
                 self.emit(f"push [{variable["index"]}:{variable['level'] + self.level}]")
@@ -156,8 +166,8 @@ class CodeGen(ASTVisitor):
         
         # Iterate through each statement in func block
         for st in node.stmts:
+            print(self.index)
             st.accept(self)
-            self.index += 1
 
     def visit_func_node(self, node):
         # Set current scope to function name
@@ -166,7 +176,7 @@ class CodeGen(ASTVisitor):
         self.emit(f'.{node.name}')
         # Allocate space for parameters
         self.emit(f'push {self.countVariables(node.block) + len(node.params.params)}')
-
+        print(self.index)
         # Custom visitor function specifically for node block
         self.visit_func_block_node(node.block)
 
@@ -239,9 +249,9 @@ class CodeGen(ASTVisitor):
         cur_instrs = self.instructions.copy()
 
         # visit then block
-        self.emit('oframe')
+        self.oFrame()
         node.block.accept(self)
-        self.emit('cframe')
+        self.cFrame()
 
         # Get length difference between new and old instructions for skip
         instruct_diff_no = len(self.instructions) - len(cur_instrs)
@@ -250,7 +260,7 @@ class CodeGen(ASTVisitor):
         # Jump to if true block (Always is 4)
 
         self.instructions.insert(len(cur_instrs), f'jmp')
-        self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 1}')  
+        self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 2}')  
  
         if node.elseBlock != None:
             # Same procedure but for else block
@@ -261,7 +271,7 @@ class CodeGen(ASTVisitor):
 
             instruct_diff_no = len(self.instructions) - len(cur_instrs)
 
-            self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 1}')
+            self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 2}')
         else:
             self.instructions.insert(len(cur_instrs), f'cjmp')
             self.instructions.insert(len(cur_instrs), f'push #PC+4')        
@@ -282,35 +292,28 @@ class CodeGen(ASTVisitor):
             # visit left first
             node.left.accept(self)
 
-
-        # # Visit lhs 
-        # node.left.accept(self)
-
-        # # If rhs exists, visit it
-        # if node.right:
-        #     node.right.accept(self)
-        #     op = relop[node.op]
-        #     self.emit(op)
-
     def visit_for_node(self, node):
         self.emit(f'push {self.countVariables(node.block) + 1}')
         self.oFrame()
+        self.emit(f'push 1')
+        self.emit('alloc')
         # Visit Initialization
         node.init.accept(self)
 
         # Record instructions before condition statements
         beforeCondition = self.instructions.copy()
+        print(beforeCondition)
         # Visit Condition
+        print(node.cond)
         node.cond.accept(self)
+        print(self.instructions)
         # Record instruction length difference after condition statements
         afterCondition = len(self.instructions) - len(beforeCondition) 
 
 
         # Get current instructions before processing for block
 
-        count = self.countVariables(node.block)
-        self.emit(f"push {count}")
-        self.emit(f"oframe")
+
         # Insert before block
         self.emit('push #PC+4')  
         self.emit('cjmp')
@@ -319,11 +322,10 @@ class CodeGen(ASTVisitor):
 
         # Visit Block  
  
-        self.oFrame()
+       
+        print('maximum',self.level)
         node.block.accept(self)
-        
-
-        self.cFrame()
+     
         
         # Process step expression
         node.step.accept(self)  
@@ -340,7 +342,7 @@ class CodeGen(ASTVisitor):
         instruct_diff_no = len(self.instructions) - len(cur_instrs)
 
         self.instructions.insert(len(cur_instrs), f'jmp')
-        self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 2}')  
+        self.instructions.insert(len(cur_instrs), f'push #PC+{instruct_diff_no + 1}  ')  
 
     def visit_print_node(self, node):
         print(self.instructions)
@@ -396,7 +398,6 @@ class CodeGen(ASTVisitor):
         node.var.accept(self)
         
     def visit_block_node(self, node):
-        ins_count = 0
         hasReturn = False
         # function arrays, as Main block is to be processed first, then the rest.
         functions = []
@@ -408,7 +409,7 @@ class CodeGen(ASTVisitor):
 
                 functions.append(st)
                 # Go next statement
-                self.index += 1
+            
                 continue
             # If return node
             if isinstance(st, ast.ASTReturnNode):
@@ -416,11 +417,10 @@ class CodeGen(ASTVisitor):
                 st.expr.accept(self)
                 # Set return to true
                 hasReturn = True
-                self.index += 1
+           
                 continue
 
             st.accept(self)
-            self.index += 1
 
         # If functions are defined (this will ever only be the case within the main block)
         if len(functions) > 0:
@@ -442,9 +442,10 @@ class CodeGen(ASTVisitor):
         count = self.countVariables(block)
         self.emit(f"push {count}")
         # Open scope
-        self.oFrame()
+        self.emit('oframe')
+            
         block.accept(self)
-        self.cFrame()
+        self.emit('cframe')
         self.emit('halt')
 
         for ins in self.instructions:
@@ -452,23 +453,21 @@ class CodeGen(ASTVisitor):
                     
 
     def oFrame(self):
+        print(self.instructions)
         self.emit("oframe")
+        print(self.instructions)
         self.level += 1
 
     def cFrame(self):
         self.emit("cframe")
         self.level -= 1
 
-# __write_box x, x, 1, 1, #0000ff;
 
 if __name__ == "__main__":
     parserObj = Parser.Parser("""
-                        let x:int = 5;
-                              
- 
-                     
-                        for (let a:int = 0; a < 10; a = a + 1){
-                           __print a
+                        fun test(h:int) -> int {
+                            let a:int = 5;  
+                            return a * h;
                         }
  
                               

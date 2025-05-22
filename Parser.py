@@ -428,27 +428,9 @@ class Parser:
         if self.crtToken.type == lex.TokenType.Print:
             # Next token
             self.NextToken()
-
-            # if lexeme type is identifier
-            if self.crtToken.type == lex.TokenType.Identifier:
-
-                tempIdent = self.ReturnASTNode()
-
-                # check if identifier is a function call
-                self.NextToken()
-
-                if self.crtToken.type == lex.TokenType.Parameter_L:
-                    # go back to identifier
-                    self.PreviousToken()
-                    # parse function call
-                    tempCall = self.ParseFunctionCall()
-                    # return print node with function call
-                    return ast.ASTPrintNode(tempCall)
-            
-
-                return ast.ASTPrintNode(tempIdent)
-                
+            # Parse expression
             tempExpr = self.ParseExpression()
+           
             return ast.ASTPrintNode(tempExpr)
 
     def ParseIf(self):
@@ -631,7 +613,7 @@ class Parser:
         
         print(self.crtToken.lexeme)
         raise SyntaxError("Invalid Statement")
-        4
+        
     def ParseBlock(self):
         #At the moment we only have assignment statements .... you'll need to add more for the assignment - branching depends on the token type
         block = ast.ASTBlockNode()
@@ -673,14 +655,7 @@ if __name__ == '__main__':
 
     parser = Parser("""                              
                     
-                    for (let x:int = 0; x < 36 ; x = x + 1){
-                        __print x;
-                        for (let y:int = 0; y < 50; y = y + 1){
-                            __print y;
-                        }
-                              
-                        __print 51;
-                    }
+                    __print g * 5;
  
                     """)
     parser.Parse()
